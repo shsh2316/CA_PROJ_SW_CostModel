@@ -5,18 +5,17 @@ using System.Data.SqlClient;
 using System.Globalization;
 
 /// <summary>
-/// SQL Server access. The connection string lives in config\connectionStrings.config
-/// (linked from web.config), under the name below.
+/// SQL Server access. The connection string is CCCConString in web.config, the same entry dbClassSql uses.
 /// </summary>
 public static class Db
 {
-    public const string ConnectionStringName = "CentralAutomationEstimator";
+    public const string ConnectionStringName = "CCCConString";
 
     public static SqlConnection Open()
     {
         ConnectionStringSettings cs = ConfigurationManager.ConnectionStrings[ConnectionStringName];
         if (cs == null || String.IsNullOrWhiteSpace(cs.ConnectionString))
-            throw new ApiException(500, "config", "The connection string '" + ConnectionStringName + "' is missing from config\\connectionStrings.config.");
+            throw new ApiException(500, "config", "The connection string '" + ConnectionStringName + "' is missing from web.config.");
         var conn = new SqlConnection(cs.ConnectionString);
         try
         {
@@ -26,7 +25,7 @@ public static class Db
         {
             conn.Dispose();
             throw new ApiException(503, "database_unavailable",
-                "Cannot connect to SQL Server. Check config\\connectionStrings.config and that the application pool account can log in to the database.", ex);
+                "Cannot connect to SQL Server. Check CCCConString in web.config and that the application pool account can log in to the database.", ex);
         }
         return conn;
     }

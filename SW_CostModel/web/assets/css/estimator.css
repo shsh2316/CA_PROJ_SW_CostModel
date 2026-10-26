@@ -215,3 +215,18 @@ ol.log li{margin:3px 0}
   .paper tr,.q-sign,.q-spec div{break-inside:avoid}
   .paper h3{break-after:avoid}
 }
+/* report page */
+.pnav a{font:inherit;font-weight:500;color:var(--muted);text-decoration:none;border-bottom:4px solid transparent;margin-bottom:-2px;padding:10px 16px;min-height:46px;display:inline-flex;align-items:center;white-space:nowrap}
+.pnav a:hover{color:var(--ink)}
+.pnav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--steel);font-weight:600}
+a.btn{display:inline-flex;align-items:center;text-decoration:none}
+a.btn.primary{color:#fff}
+.rbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+.rcount{color:var(--muted);font-size:13px;margin-left:auto}
+.tw td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.tw td a{color:var(--steel);font-weight:500}
+.tw tr.total td{font-weight:700;border-top:2px solid var(--ink);border-bottom:0}
+table.kv{min-width:0}
+table.kv th{width:230px;font-size:13px;vertical-align:top}
+.msg{border:1px solid var(--amber);background:var(--amber-soft);color:var(--ink);border-radius:3px;padding:10px 12px;margin:0 0 14px}
+@media print{.rbar,.filters{display:none!important}}

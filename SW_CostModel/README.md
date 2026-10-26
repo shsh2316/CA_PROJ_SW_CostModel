@@ -20,9 +20,9 @@ docs/
   PROJECT_SHEET.md                         the one-sheet project template: columns, allowed values, loading
   AUDIT.md                                 audit findings and what was changed
 web/                                       copy the CONTENTS of this folder to the IIS site
-  Index.aspx, Index.aspx.cs                the page and its code-behind
+  project_registry.aspx(.cs), project_report.aspx(.cs)  the estimator page and the report page
   web.config                               IIS settings
-  config/connectionStrings.config          database connection (the only file to edit per server)
+  web.config                               also holds the database connection, CCCConString
   api/estimator.ashx                       JSON API used by the page
   App_Code/                                API code and dbClassSql, compiled by IIS on first use
     ApiException.cs, Db.cs, Json.cs, CurrentUser.cs, MasterRepository.cs, ProjectRepository.cs
@@ -38,7 +38,7 @@ web/                                       copy the CONTENTS of this folder to t
 1. Run `database\01` to `03` in SSMS (set `@AppLogin` in 01 first).
 2. Copy the contents of `web` to the server, create an IIS site on a .NET 4 application pool,
    enable Windows Authentication and disable Anonymous.
-3. Edit `web\config\connectionStrings.config` if SQL Server is not local.
+3. Edit `CCCConString` in `web\web.config` if SQL Server is not local.
 4. Open the page once, then make yourself an admin: `UPDATE dbo.SwAppUser SET IsAdmin = 1 WHERE UserLogin = N'DOMAIN\you';`
 
 Full steps and troubleshooting: [docs/DEPLOYMENT_IIS.md](docs/DEPLOYMENT_IIS.md).

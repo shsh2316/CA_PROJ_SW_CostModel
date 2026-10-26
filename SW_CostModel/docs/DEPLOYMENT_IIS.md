@@ -49,7 +49,7 @@ All scripts are safe to run again. To upgrade a database made with an earlier ve
   or a domain service account that you set as the application pool identity.
 
 If you change the database name, change it at the top of each script and in
-`web\config\connectionStrings.config`.
+the `CCCConString` entry in `web\web.config`.
 
 ## 3. IIS site
 
@@ -68,12 +68,12 @@ If you change the database name, change it at the top of each script and in
 
 ## 4. Database connection
 
-Edit `web\config\connectionStrings.config` on the server. It is the only file with
+Edit the `CCCConString` entry in `web\web.config` on the server. It is the only file with
 connection details; `web.config` links to it. The default uses Windows authentication to
 a local SQL Server:
 
 ```xml
-<add name="CentralAutomationEstimator" providerName="System.Data.SqlClient"
+<add name="CCCConString" providerName="System.Data.SqlClient"
      connectionString="Data Source=localhost;Initial Catalog=CentralAutomationEstimator;Integrated Security=True;Connect Timeout=15;Application Name=CentralAutomationEstimator" />
 ```
 
@@ -106,9 +106,9 @@ IIS never serves the `config` folder (request filtering, set in `web.config`).
 
 | Symptom | Cause and fix |
 |---|---|
-| HTTP 500.19 or a configuration error page | a feature from step 1 is missing (usually ASP.NET 4.x), or `config\connectionStrings.config` is missing or not valid XML. |
+| HTTP 500.19 or a configuration error page | a feature from step 1 is missing (usually ASP.NET 4.x), or `CCCConString` in `web.config` is missing or not valid XML. |
 | HTTP 401.2 | both Windows and Anonymous authentication are off. Enable Windows Authentication. |
-| Approval says "Cannot connect to SQL Server" | wrong server or database name in `config\connectionStrings.config`; SQL Server not accepting TCP connections or the firewall blocks port 1433; or the app pool account has no SQL login (the event log then shows "Login failed for user ..."; check `@AppLogin` in script 01 matches the pool identity and re-run it). |
+| Approval says "Cannot connect to SQL Server" | wrong server or database name in `CCCConString` in `web.config`; SQL Server not accepting TCP connections or the firewall blocks port 1433; or the app pool account has no SQL login (the event log then shows "Login failed for user ..."; check `@AppLogin` in script 01 matches the pool identity and re-run it). |
 | Someone sees only Registration and My entries | they are not an admin: set `IsAdmin = 1` for them in `dbo.SwAppUser`, then they reload the page. |
 | "This browser cannot read Excel files" | use a current Edge or Chrome. Files must be `.xlsx` (Excel Workbook), not `.xls`. |
 | "Sign in with your Windows account" when submitting | Anonymous Authentication is still on, or Windows Authentication is off. |
@@ -121,5 +121,5 @@ Current Edge, Chrome or Firefox. Internet Explorer is not supported.
 ## Updating the site
 
 Copy the new `web` folder contents over the old ones, but keep the server's own
-`config\connectionStrings.config`. Run any new database scripts. Browsers pick up the new
+`CCCConString` in `web.config`. Run any new database scripts. Browsers pick up the new
 files on the next visit (the site sends `Cache-Control: no-cache`).

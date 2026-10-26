@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" CodeFile="Index.aspx.cs" Inherits="IndexPage" EnableViewState="false" EnableSessionState="false" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="project_registry.aspx.cs" Inherits="ProjectRegistryPage" EnableViewState="false" EnableSessionState="false" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,6 +21,7 @@
     <button type="button" data-page="appr">Approval</button>
     <button type="button" data-page="xl">Excel upload</button>
     <button type="button" data-page="print">Print</button>
+    <a href="project_report.aspx">Report</a>
   </nav>
 
   <section class="page" id="p-master">
