@@ -6,10 +6,11 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.UI;
+using Ports;
 
 /// <summary>
 /// Project report: the register of estimates (dbo.SwProjectRegister) to look at, filter and download as CSV.
-/// All database access goes through dbClassSql (see DbSql). The visibility rules are the same as the JSON API:
+/// All database access goes through dbClassSql. The visibility rules are the same as the JSON API:
 ///   - not signed in: nothing
 ///   - admins: every entry, with the cost figures
 ///   - everyone else: only their own entries, without any cost figures
@@ -196,7 +197,7 @@ public partial class ProjectReportPage : Page
         sb.Append("<form method=\"get\" action=\"project_report.aspx\" class=\"filters\"><div class=\"fields\">");
 
         sb.Append("<label class=\"f\"><span class=\"fl\">Financial year</span><select name=\"fy\"><option value=\"\">All years</option>");
-        DataTable years = DbSql.Query("SELECT DISTINCT FinYear FROM dbo.SwProjectRegister" + ScopeWhere(null) + " ORDER BY FinYear DESC");
+        DataTable years = Run("SELECT DISTINCT FinYear FROM dbo.SwProjectRegister" + ScopeWhere(null) + " ORDER BY FinYear DESC");
         foreach (DataRow r in years.Rows)
         {
             string y = Convert.ToString(r["FinYear"]);
@@ -245,7 +246,7 @@ public partial class ProjectReportPage : Page
         }
         sb.Append("</tbody></table></div>");
 
-        DataTable log = DbSql.Query("SELECT Action, ActionBy, ActionAt, Comment FROM dbo.SwProjectLog WHERE RegisterId = " + DbSql.Lit(id) + " ORDER BY LogId");
+        DataTable log = Run("SELECT Action, ActionBy, ActionAt, Comment FROM dbo.SwProjectLog WHERE RegisterId = " + WebUser.Quote(id) + " ORDER BY LogId");
         if (log.Rows.Count > 0)
         {
             sb.Append("<h3 class=\"sub\">History</h3><div class=\"tw\"><table><thead><tr><th>When</th><th>Action</th><th>By</th><th>Comment</th></tr></thead><tbody>");
@@ -261,6 +262,25 @@ public partial class ProjectReportPage : Page
 
     /* ================= data ================= */
 
+    /// <summary>Runs a SELECT through dbClassSql. It hands a failure back as an ErrorNo / Error table; that becomes an exception here.</summary>
+    static DataTable Run(string sql)
+    {
+        DataTable dt;
+        lock (dbClassSql.getdbClassInstance)   // one shared connection: one command at a time
+            dt = dbClassSql.getdbClassInstance.SelectDT(sql);
+        if (dt == null)
+            throw new InvalidOperationException("The database returned nothing.");
+        if (dt.Columns.Count == 2 && dt.Columns.Contains("ErrorNo") && dt.Columns.Contains("Error"))
+            throw new InvalidOperationException(dt.Rows.Count > 0 ? Convert.ToString(dt.Rows[0]["Error"]) : "Database error.");
+        return dt;
+    }
+
+    /// <summary>A quoted LIKE pattern that matches the text anywhere, with % _ [ taken literally.</summary>
+    static string LikeQuote(string s)
+    {
+        return WebUser.Quote("%" + (s ?? "").Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]") + "%");
+    }
+
     /// <summary>The rows the person may see, narrowed by the filters (list) or to one entry (detail).</summary>
     DataTable Query(string id)
     {
@@ -268,27 +288,27 @@ public partial class ProjectReportPage : Page
         foreach (Col c in Visible(false)) names.Add(c.Name);
 
         var where = new List<string>();
-        if (id != null) where.Add("RegisterId = " + DbSql.Lit(id));
+        if (id != null) where.Add("RegisterId = " + WebUser.Quote(id));
         else
         {
-            if (fy != null) where.Add("FinYear = " + DbSql.Lit(fy));
-            if (kind != null) where.Add("Kind = " + DbSql.Lit(kind));
-            if (status != null) where.Add("Status = " + DbSql.Lit(status));
-            if (review != null) where.Add("Workflow = " + DbSql.Lit(review));
+            if (fy != null) where.Add("FinYear = " + WebUser.Quote(fy));
+            if (kind != null) where.Add("Kind = " + WebUser.Quote(kind));
+            if (status != null) where.Add("Status = " + WebUser.Quote(status));
+            if (review != null) where.Add("Workflow = " + WebUser.Quote(review));
             if (!String.IsNullOrEmpty(q))
             {
-                string like = DbSql.LikeLit(q);
+                string like = LikeQuote(q);
                 where.Add("(ProjectName LIKE " + like + " OR Department LIKE " + like + " OR SubmittedBy LIKE " + like + ")");
             }
         }
-        return DbSql.Query("SELECT " + String.Join(", ", names.ToArray()) + " FROM dbo.SwProjectRegister" + ScopeWhere(where) + " ORDER BY FinYear DESC, ProjectName, Kind");
+        return Run("SELECT " + String.Join(", ", names.ToArray()) + " FROM dbo.SwProjectRegister" + ScopeWhere(where) + " ORDER BY FinYear DESC, ProjectName, Kind");
     }
 
     /// <summary>WHERE clause: the person's visibility rule plus any extra conditions.</summary>
     string ScopeWhere(List<string> extra)
     {
         var parts = new List<string>();
-        if (!user.IsAdmin) parts.Add("SubmittedBy = " + DbSql.Lit(user.Login));
+        if (!user.IsAdmin) parts.Add("SubmittedBy = " + WebUser.Quote(user.Login));
         if (extra != null) parts.AddRange(extra);
         return parts.Count == 0 ? "" : " WHERE " + String.Join(" AND ", parts.ToArray());
     }

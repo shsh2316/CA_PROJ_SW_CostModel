@@ -2,9 +2,10 @@ using System;
 using System.Data;
 using System.Security.Principal;
 using System.Web;
+using Ports;
 
 /// <summary>
-/// The signed-in Windows user for the .aspx pages, read through dbClassSql (see DbSql).
+/// The signed-in Windows user for the .aspx pages, read through dbClassSql.
 /// Same rules as CurrentUser, which the JSON API uses: a person is added to dbo.SwAppUser on first visit,
 /// and only IsAdmin = 1 people see costs. If the database cannot be read the person counts as a non-admin.
 /// </summary>
@@ -28,16 +29,21 @@ public sealed class WebUser
         u.Login = login.Length > 200 ? login.Substring(0, 200) : login;
         u.DisplayName = CurrentUser.ShortName(u.Login);
 
-        string who = DbSql.Lit(u.Login);
+        string who = Quote(u.Login);
         string sql =
             "MERGE dbo.SwAppUser WITH (HOLDLOCK) AS t " +
             "USING (SELECT " + who + " AS UserLogin) AS s ON t.UserLogin = s.UserLogin " +
             "WHEN MATCHED AND t.LastSeenAt < DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN UPDATE SET LastSeenAt = SYSUTCDATETIME() " +
-            "WHEN NOT MATCHED THEN INSERT (UserLogin, DisplayName) VALUES (" + who + ", " + DbSql.Lit(u.DisplayName) + "); " +
+            "WHEN NOT MATCHED THEN INSERT (UserLogin, DisplayName) VALUES (" + who + ", " + Quote(u.DisplayName) + "); " +
             "SELECT DisplayName, IsAdmin FROM dbo.SwAppUser WHERE UserLogin = " + who + ";";
         try
         {
-            DataTable dt = DbSql.Query(sql);
+            DataTable dt;
+            // dbClassSql keeps one shared connection that cannot run two commands at once, so every page locks on its instance.
+            lock (dbClassSql.getdbClassInstance)
+                dt = dbClassSql.getdbClassInstance.SelectDT(sql);
+            // dbClassSql reports a failure as a table with ErrorNo and Error columns.
+            if (dt == null || dt.Columns.Contains("Error")) { u.DbError = true; return u; }
             if (dt.Rows.Count > 0)
             {
                 DataRow row = dt.Rows[0];
@@ -51,5 +57,11 @@ public sealed class WebUser
             u.DbError = true;
         }
         return u;
+    }
+
+    /// <summary>dbClassSql takes finished SQL text with no parameters, so values are quoted here: N'it''s'.</summary>
+    public static string Quote(string s)
+    {
+        return "N'" + (s ?? "").Replace("'", "''") + "'";
     }
 }
