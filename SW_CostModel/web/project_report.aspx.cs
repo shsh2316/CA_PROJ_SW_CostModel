@@ -6,11 +6,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.UI;
-using Ports;
 
 /// <summary>
 /// Project report: the register of estimates (dbo.SwProjectRegister) to look at, filter and download as CSV.
-/// All database access goes through dbClassSql. The visibility rules are the same as the JSON API:
+/// All database access goes through Db, which uses dbClassSql. The visibility rules are the same as the JSON API:
 ///   - not signed in: nothing
 ///   - admins: every entry, with the cost figures
 ///   - everyone else: only their own entries, without any cost figures
@@ -77,7 +76,7 @@ public partial class ProjectReportPage : Page
         new Col("Note", "Note", Fmt.Text, null, false, false)
     };
 
-    WebUser user;
+    CurrentUser user;
     string fy, kind, status, review, q;
 
     protected void Page_Load(object sender, EventArgs e)
@@ -85,18 +84,21 @@ public partial class ProjectReportPage : Page
         Response.Cache.SetCacheability(HttpCacheability.NoCache);
         Response.Cache.SetNoStore();
 
-        user = WebUser.Load(Context);
         litTitle.Text = "Project estimates";
         litLead.Text = "";
 
-        if (!user.IsSignedIn)
+        try
         {
-            Say("Sign in with your Windows account to see estimates. Ask the administrator to turn on Windows Authentication for this site.");
-            return;
+            user = CurrentUser.Load(Context);
+            if (!user.IsSignedIn)
+            {
+                Say("Sign in with your Windows account to see estimates. Ask the administrator to turn on Windows Authentication for this site.");
+                return;
+            }
         }
-        if (user.DbError)
+        catch (ApiException ex)
         {
-            Say("The database could not be reached. Check CCCConString in web.config and that the application pool account can log in to the database.");
+            Say(ex.Message);
             return;
         }
 
@@ -118,13 +120,9 @@ public partial class ProjectReportPage : Page
             if (!String.IsNullOrEmpty(id)) ShowOne(id);
             else ShowList();
         }
-        catch (InvalidOperationException ex)
+        catch (ApiException ex)
         {
-            Say("The register could not be read." + (Request.IsLocal ? " " + ex.Message : ""));
-        }
-        catch (TypeInitializationException)
-        {
-            Say("The database connection is not set up. Add CCCConString to web.config.");
+            Say(ex.Message);
         }
     }
 
@@ -197,7 +195,7 @@ public partial class ProjectReportPage : Page
         sb.Append("<form method=\"get\" action=\"project_report.aspx\" class=\"filters\"><div class=\"fields\">");
 
         sb.Append("<label class=\"f\"><span class=\"fl\">Financial year</span><select name=\"fy\"><option value=\"\">All years</option>");
-        DataTable years = Run("SELECT DISTINCT FinYear FROM dbo.SwProjectRegister" + ScopeWhere(null) + " ORDER BY FinYear DESC");
+        DataTable years = Db.Select("SELECT DISTINCT FinYear FROM dbo.SwProjectRegister" + ScopeWhere(null) + " ORDER BY FinYear DESC");
         foreach (DataRow r in years.Rows)
         {
             string y = Convert.ToString(r["FinYear"]);
@@ -246,7 +244,7 @@ public partial class ProjectReportPage : Page
         }
         sb.Append("</tbody></table></div>");
 
-        DataTable log = Run("SELECT Action, ActionBy, ActionAt, Comment FROM dbo.SwProjectLog WHERE RegisterId = " + WebUser.Quote(id) + " ORDER BY LogId");
+        DataTable log = Db.Select("SELECT Action, ActionBy, ActionAt, Comment FROM dbo.SwProjectLog WHERE RegisterId = " + Db.Quote(id) + " ORDER BY LogId");
         if (log.Rows.Count > 0)
         {
             sb.Append("<h3 class=\"sub\">History</h3><div class=\"tw\"><table><thead><tr><th>When</th><th>Action</th><th>By</th><th>Comment</th></tr></thead><tbody>");
@@ -262,23 +260,10 @@ public partial class ProjectReportPage : Page
 
     /* ================= data ================= */
 
-    /// <summary>Runs a SELECT through dbClassSql. It hands a failure back as an ErrorNo / Error table; that becomes an exception here.</summary>
-    static DataTable Run(string sql)
-    {
-        DataTable dt;
-        lock (dbClassSql.getdbClassInstance)   // one shared connection: one command at a time
-            dt = dbClassSql.getdbClassInstance.SelectDT(sql);
-        if (dt == null)
-            throw new InvalidOperationException("The database returned nothing.");
-        if (dt.Columns.Count == 2 && dt.Columns.Contains("ErrorNo") && dt.Columns.Contains("Error"))
-            throw new InvalidOperationException(dt.Rows.Count > 0 ? Convert.ToString(dt.Rows[0]["Error"]) : "Database error.");
-        return dt;
-    }
-
     /// <summary>A quoted LIKE pattern that matches the text anywhere, with % _ [ taken literally.</summary>
     static string LikeQuote(string s)
     {
-        return WebUser.Quote("%" + (s ?? "").Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]") + "%");
+        return Db.Quote("%" + (s ?? "").Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]") + "%");
     }
 
     /// <summary>The rows the person may see, narrowed by the filters (list) or to one entry (detail).</summary>
@@ -288,27 +273,27 @@ public partial class ProjectReportPage : Page
         foreach (Col c in Visible(false)) names.Add(c.Name);
 
         var where = new List<string>();
-        if (id != null) where.Add("RegisterId = " + WebUser.Quote(id));
+        if (id != null) where.Add("RegisterId = " + Db.Quote(id));
         else
         {
-            if (fy != null) where.Add("FinYear = " + WebUser.Quote(fy));
-            if (kind != null) where.Add("Kind = " + WebUser.Quote(kind));
-            if (status != null) where.Add("Status = " + WebUser.Quote(status));
-            if (review != null) where.Add("Workflow = " + WebUser.Quote(review));
+            if (fy != null) where.Add("FinYear = " + Db.Quote(fy));
+            if (kind != null) where.Add("Kind = " + Db.Quote(kind));
+            if (status != null) where.Add("Status = " + Db.Quote(status));
+            if (review != null) where.Add("Workflow = " + Db.Quote(review));
             if (!String.IsNullOrEmpty(q))
             {
                 string like = LikeQuote(q);
                 where.Add("(ProjectName LIKE " + like + " OR Department LIKE " + like + " OR SubmittedBy LIKE " + like + ")");
             }
         }
-        return Run("SELECT " + String.Join(", ", names.ToArray()) + " FROM dbo.SwProjectRegister" + ScopeWhere(where) + " ORDER BY FinYear DESC, ProjectName, Kind");
+        return Db.Select("SELECT " + String.Join(", ", names.ToArray()) + " FROM dbo.SwProjectRegister" + ScopeWhere(where) + " ORDER BY FinYear DESC, ProjectName, Kind");
     }
 
     /// <summary>WHERE clause: the person's visibility rule plus any extra conditions.</summary>
     string ScopeWhere(List<string> extra)
     {
         var parts = new List<string>();
-        if (!user.IsAdmin) parts.Add("SubmittedBy = " + WebUser.Quote(user.Login));
+        if (!user.IsAdmin) parts.Add("SubmittedBy = " + Db.Quote(user.Login));
         if (extra != null) parts.AddRange(extra);
         return parts.Count == 0 ? "" : " WHERE " + String.Join(" AND ", parts.ToArray());
     }

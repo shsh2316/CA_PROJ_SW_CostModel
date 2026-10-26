@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using System.IO;
 using System.Text;
 using System.Web;
@@ -72,38 +71,35 @@ public class EstimatorApi : IHttpHandler
             body = ReadBody(req);
         }
 
-        using (SqlConnection conn = Db.Open())
+        CurrentUser user = CurrentUser.Load(ctx);
+        switch (action + (post ? ":POST" : ":GET"))
         {
-            CurrentUser user = CurrentUser.Load(ctx, conn);
-            switch (action + (post ? ":POST" : ":GET"))
-            {
-                case "init:GET":
-                    return new Dictionary<string, object>
-                    {
-                        { "me", Me(user) },
-                        { "masters", MasterRepository.Load(conn, user.IsAdmin) },
-                        { "register", ProjectRepository.List(conn, user) }
-                    };
-                case "projects:GET":
-                    return ProjectRepository.List(conn, user);
-                case "saveMaster:POST":
-                    user.RequireAdmin("Only admins can change masters.");
-                    MasterRepository.Save(conn, user, Json.Text(body, "key", 10), Json.Obj(body, "doc"));
-                    return Ok(null);
-                case "submitProject:POST":
-                    return Ok(ProjectRepository.Submit(conn, user, body));
-                case "verifyProject:POST":
-                    ProjectRepository.Verify(conn, user, body);
-                    return Ok(null);
-                case "sendBack:POST":
-                    ProjectRepository.SendBack(conn, user, body);
-                    return Ok(null);
-                case "deleteProject:POST":
-                    ProjectRepository.Delete(conn, user, body);
-                    return Ok(null);
-                default:
-                    throw new ApiException(404, "not_found", "Unknown action '" + action + "'.");
-            }
+            case "init:GET":
+                return new Dictionary<string, object>
+                {
+                    { "me", Me(user) },
+                    { "masters", MasterRepository.Load(user.IsAdmin) },
+                    { "register", ProjectRepository.List(user) }
+                };
+            case "projects:GET":
+                return ProjectRepository.List(user);
+            case "saveMaster:POST":
+                user.RequireAdmin("Only admins can change masters.");
+                MasterRepository.Save(user, Json.Text(body, "key", 10), Json.Obj(body, "doc"));
+                return Ok(null);
+            case "submitProject:POST":
+                return Ok(ProjectRepository.Submit(user, body));
+            case "verifyProject:POST":
+                ProjectRepository.Verify(user, body);
+                return Ok(null);
+            case "sendBack:POST":
+                ProjectRepository.SendBack(user, body);
+                return Ok(null);
+            case "deleteProject:POST":
+                ProjectRepository.Delete(user, body);
+                return Ok(null);
+            default:
+                throw new ApiException(404, "not_found", "Unknown action '" + action + "'.");
         }
     }
 

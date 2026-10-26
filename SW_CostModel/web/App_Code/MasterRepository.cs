@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using System.Data;
 using System.Text.RegularExpressions;
 
 /// <summary>
@@ -67,7 +67,7 @@ public static class MasterRepository
     /* ================= load ================= */
 
     /// <param name="includeCosts">false for people who are not admins: prices are left out.</param>
-    public static Dictionary<string, object> Load(SqlConnection conn, bool includeCosts)
+    public static Dictionary<string, object> Load(bool includeCosts)
     {
         var man = new Dictionary<string, object>();
         var hw = new Dictionary<string, object>();
@@ -79,7 +79,7 @@ public static class MasterRepository
         {
             var rates = new Dictionary<string, object>();
             var ratesB = new Dictionary<string, object>();
-            Read(conn, "SELECT LevelName, RateCA, RateBenchmark FROM dbo.SwRateLevel ORDER BY SortOrder", r =>
+            Read("SELECT LevelName, RateCA, RateBenchmark FROM dbo.SwRateLevel ORDER BY SortOrder", r =>
             {
                 rates[Db.Str(r, "LevelName")] = Db.Dec(r, "RateCA");
                 ratesB[Db.Str(r, "LevelName")] = Db.Dec(r, "RateBenchmark");
@@ -88,20 +88,20 @@ public static class MasterRepository
             man["ratesB"] = ratesB;
         }
         var roles = new List<object>();
-        Read(conn, "SELECT RoleName, DefaultLevel FROM dbo.SwRole ORDER BY SortOrder, RoleId", r =>
+        Read("SELECT RoleName, DefaultLevel FROM dbo.SwRole ORDER BY SortOrder, RoleId", r =>
             roles.Add(new Dictionary<string, object> { { "role", Db.Str(r, "RoleName") }, { "level", Db.Str(r, "DefaultLevel") } }));
         man["roles"] = roles;
 
         if (includeCosts)
-            Read(conn, "SELECT Model, Item, ValueCA, ValueBenchmark FROM dbo.SwHwPrice", r =>
+            Read("SELECT Model, Item, ValueCA, ValueBenchmark FROM dbo.SwHwPrice", r =>
             {
                 Json.Set(hw, Db.Str(r, "Model") + "." + Db.Str(r, "Item"), Db.Dec(r, "ValueCA"));
                 Json.Set(hw, Db.Str(r, "Model") + "B." + Db.Str(r, "Item"), Db.Dec(r, "ValueBenchmark"));
             });
-        Read(conn, "SELECT FactorType, Code, Factor FROM dbo.SwHwFactor", r =>
+        Read("SELECT FactorType, Code, Factor FROM dbo.SwHwFactor", r =>
             Json.Set(hw, (Db.Str(r, "FactorType") == "env" ? "envF." : "raidF.") + Db.Str(r, "Code"), Db.Dec(r, "Factor")));
         var gpus = new List<object>();
-        Read(conn, "SELECT GpuId, GpuName, PriceCA, PriceBenchmark, MonthlyCA, MonthlyBenchmark FROM dbo.SwGpu WHERE IsActive = 1 ORDER BY SortOrder, GpuId", r =>
+        Read("SELECT GpuId, GpuName, PriceCA, PriceBenchmark, MonthlyCA, MonthlyBenchmark FROM dbo.SwGpu WHERE IsActive = 1 ORDER BY SortOrder, GpuId", r =>
             gpus.Add(new Dictionary<string, object> {
                 { "id", Db.Str(r, "GpuId") }, { "name", Db.Str(r, "GpuName") },
                 { "price", Db.Dec(r, "PriceCA") }, { "priceB", Db.Dec(r, "PriceBenchmark") },
@@ -109,20 +109,20 @@ public static class MasterRepository
         hw["gpus"] = includeCosts ? gpus : NamesOnly(gpus, "id", "name");
 
         var db = new List<object>();
-        Read(conn, "SELECT DbId, DbName, PriceCA, PriceBenchmark, MinCores, SupportPct FROM dbo.SwDbEngine WHERE IsActive = 1 ORDER BY SortOrder, DbId", r =>
+        Read("SELECT DbId, DbName, PriceCA, PriceBenchmark, MinCores, SupportPct FROM dbo.SwDbEngine WHERE IsActive = 1 ORDER BY SortOrder, DbId", r =>
             db.Add(new Dictionary<string, object> {
                 { "id", Db.Str(r, "DbId") }, { "name", Db.Str(r, "DbName") },
                 { "price", Db.Dec(r, "PriceCA") }, { "priceB", Db.Dec(r, "PriceBenchmark") },
                 { "min", r["MinCores"] }, { "support", Db.Dec(r, "SupportPct") } }));
         lic["db"] = includeCosts ? db : NamesOnly(db, "id", "name", "min");
         var os = new List<object>();
-        Read(conn, "SELECT OsId, OsName, PriceCA, PriceBenchmark FROM dbo.SwOsOption WHERE IsActive = 1 ORDER BY SortOrder, OsId", r =>
+        Read("SELECT OsId, OsName, PriceCA, PriceBenchmark FROM dbo.SwOsOption WHERE IsActive = 1 ORDER BY SortOrder, OsId", r =>
             os.Add(new Dictionary<string, object> {
                 { "id", Db.Str(r, "OsId") }, { "name", Db.Str(r, "OsName") },
                 { "price", Db.Dec(r, "PriceCA") }, { "priceB", Db.Dec(r, "PriceBenchmark") } }));
         lic["os"] = includeCosts ? os : NamesOnly(os, "id", "name");
         var items = new List<object>();
-        Read(conn, "SELECT ItemId, ItemName, Category, Billing, CostCA, CostBenchmark FROM dbo.SwCatalogItem WHERE IsActive = 1 ORDER BY SortOrder, ItemId", r =>
+        Read("SELECT ItemId, ItemName, Category, Billing, CostCA, CostBenchmark FROM dbo.SwCatalogItem WHERE IsActive = 1 ORDER BY SortOrder, ItemId", r =>
             items.Add(new Dictionary<string, object> {
                 { "id", Db.Str(r, "ItemId") }, { "name", Db.Str(r, "ItemName") },
                 { "cat", Db.Str(r, "Category") }, { "type", Db.Str(r, "Billing") },
@@ -130,7 +130,7 @@ public static class MasterRepository
         lic["items"] = includeCosts ? items : NamesOnly(items, "id", "name", "cat", "type");
 
         var cats = new List<object>();
-        Read(conn, "SELECT CategoryId, CategoryName, Unit, DefaultRate FROM dbo.SwValueCategory WHERE IsActive = 1 ORDER BY SortOrder, CategoryId", r =>
+        Read("SELECT CategoryId, CategoryName, Unit, DefaultRate FROM dbo.SwValueCategory WHERE IsActive = 1 ORDER BY SortOrder, CategoryId", r =>
             cats.Add(new Dictionary<string, object> {
                 { "id", Db.Str(r, "CategoryId") }, { "name", Db.Str(r, "CategoryName") },
                 { "unit", Db.Str(r, "Unit") }, { "rate", Db.Dec(r, "DefaultRate") } }));
@@ -139,7 +139,7 @@ public static class MasterRepository
         var masters = new Dictionary<string, object> { { "man", man }, { "hw", hw }, { "sw", sw }, { "lic", lic }, { "val", val } };
         var byKey = new Dictionary<string, SettingMap>();
         foreach (SettingMap m in Settings) byKey[m.Key] = m;
-        Read(conn, "SELECT SettingKey, ValueCA, ValueBenchmark, TextValue FROM dbo.SwSetting", r =>
+        Read("SELECT SettingKey, ValueCA, ValueBenchmark, TextValue FROM dbo.SwSetting", r =>
         {
             SettingMap m;
             if (!byKey.TryGetValue(Db.Str(r, "SettingKey"), out m) || (m.AdminOnly && !includeCosts)) return;
@@ -164,51 +164,46 @@ public static class MasterRepository
         return result;
     }
 
-    static void Read(SqlConnection conn, string sql, Action<SqlDataReader> row)
+    static void Read(string sql, Action<DataRow> row)
     {
-        using (SqlCommand cmd = Db.Command(conn, null, sql))
-        using (SqlDataReader r = cmd.ExecuteReader())
-            while (r.Read()) row(r);
+        foreach (DataRow r in Db.Select(sql).Rows) row(r);
     }
 
     /* ================= save ================= */
 
-    public static void Save(SqlConnection conn, CurrentUser user, string key, IDictionary<string, object> doc)
+    public static void Save(CurrentUser user, string key, IDictionary<string, object> doc)
     {
         if (Array.IndexOf(Keys, key) < 0) throw new ApiException(400, "bad_request", "Unknown master '" + key + "'.");
         if (doc == null) throw new ApiException(400, "bad_request", "The master is missing.");
 
-        using (SqlTransaction tx = conn.BeginTransaction())
-        {
-            if (key == "man") SaveManpower(conn, tx, doc);
-            else if (key == "hw") SaveHardware(conn, tx, doc);
-            else if (key == "lic") SaveLicences(conn, tx, doc);
-            else if (key == "val") SaveValueCategories(conn, tx, doc);
-            SaveSettings(conn, tx, key, doc);
-            Db.Execute(conn, tx, "INSERT dbo.SwMasterAudit (MasterKey, SavedBy, MasterJson) VALUES (@k, @by, @json)",
-                "@k", key, "@by", user.Login, "@json", Json.Serializer().Serialize(doc));
-            tx.Commit();
-        }
+        // Everything for one master is saved together or not at all.
+        var batch = new Db.Batch();
+        if (key == "man") SaveManpower(batch, doc);
+        else if (key == "hw") SaveHardware(batch, doc);
+        else if (key == "lic") SaveLicences(batch, doc);
+        else if (key == "val") SaveValueCategories(batch, doc);
+        SaveSettings(batch, key, doc);
+        batch.Add("INSERT dbo.SwMasterAudit (MasterKey, SavedBy, MasterJson) VALUES (@k, @by, @json)",
+            "@k", key, "@by", user.Login, "@json", Json.Serializer().Serialize(doc));
+        batch.Commit(500, "database_error", "The master could not be saved to the database.");
     }
 
-    static void SaveManpower(SqlConnection conn, SqlTransaction tx, IDictionary<string, object> doc)
+    static void SaveManpower(Db.Batch batch, IDictionary<string, object> doc)
     {
         IDictionary<string, object> rates = Json.Obj(doc, "rates"), ratesB = Json.Obj(doc, "ratesB");
         var levels = new List<string>();
-        using (SqlCommand cmd = Db.Command(conn, tx, "SELECT LevelName FROM dbo.SwRateLevel"))
-        using (SqlDataReader r = cmd.ExecuteReader())
-            while (r.Read()) levels.Add(r.GetString(0));
+        foreach (DataRow r in Db.Select("SELECT LevelName FROM dbo.SwRateLevel").Rows) levels.Add(Db.Str(r, "LevelName"));
         foreach (string level in levels)
         {
             if (Json.Has(rates, level))
-                Db.Execute(conn, tx, "UPDATE dbo.SwRateLevel SET RateCA = @v WHERE LevelName = @l", "@v", Json.Num(rates, level, 0, MaxRate), "@l", level);
+                batch.Add("UPDATE dbo.SwRateLevel SET RateCA = @v WHERE LevelName = @l", "@v", Json.Num(rates, level, 0, MaxRate), "@l", level);
             if (Json.Has(ratesB, level))
-                Db.Execute(conn, tx, "UPDATE dbo.SwRateLevel SET RateBenchmark = @v WHERE LevelName = @l", "@v", Json.Num(ratesB, level, 0, MaxRate), "@l", level);
+                batch.Add("UPDATE dbo.SwRateLevel SET RateBenchmark = @v WHERE LevelName = @l", "@v", Json.Num(ratesB, level, 0, MaxRate), "@l", level);
         }
 
         IList roles = Json.List(doc, "roles");
         if (roles == null) return;
-        Db.Execute(conn, tx, "DELETE dbo.SwRole");
+        batch.Add("DELETE dbo.SwRole");
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int sort = 0;
         foreach (object o in roles)
@@ -218,11 +213,11 @@ public static class MasterRepository
             if (String.IsNullOrEmpty(name)) continue;
             if (level == null || !levels.Contains(level)) level = levels.Contains("Mid") ? "Mid" : levels[0];
             if (!seen.Add(name + "|" + level)) continue;
-            Db.Execute(conn, tx, "INSERT dbo.SwRole (RoleName, DefaultLevel, SortOrder) VALUES (@n, @l, @s)", "@n", name, "@l", level, "@s", ++sort);
+            batch.Add("INSERT dbo.SwRole (RoleName, DefaultLevel, SortOrder) VALUES (@n, @l, @s)", "@n", name, "@l", level, "@s", ++sort);
         }
     }
 
-    static void SaveHardware(SqlConnection conn, SqlTransaction tx, IDictionary<string, object> doc)
+    static void SaveHardware(Db.Batch batch, IDictionary<string, object> doc)
     {
         foreach (string model in new[] { "onprem", "cloud" })
         {
@@ -230,7 +225,7 @@ public static class MasterRepository
             foreach (string item in model == "onprem" ? OnpremItems : CloudItems)
             {
                 if (!Json.Has(ca, item) && !Json.Has(b, item)) continue;
-                Db.Execute(conn, tx,
+                batch.Add(
                     "MERGE dbo.SwHwPrice AS t USING (SELECT @m AS Model, @i AS Item) AS s ON t.Model = s.Model AND t.Item = s.Item " +
                     "WHEN MATCHED THEN UPDATE SET ValueCA = COALESCE(@ca, t.ValueCA), ValueBenchmark = COALESCE(@b, t.ValueBenchmark) " +
                     "WHEN NOT MATCHED THEN INSERT (Model, Item, ValueCA, ValueBenchmark) VALUES (@m, @i, COALESCE(@ca, 0), COALESCE(@b, @ca, 0));",
@@ -239,11 +234,11 @@ public static class MasterRepository
                     "@b", Json.Has(b, item) ? (object)Json.Num(b, item, 0, MaxRate) : null);
             }
         }
-        SaveFactors(conn, tx, "env", EnvCodes, Json.Obj(doc, "envF"));
-        SaveFactors(conn, tx, "raid", RaidCodes, Json.Obj(doc, "raidF"));
+        SaveFactors(batch, "env", EnvCodes, Json.Obj(doc, "envF"));
+        SaveFactors(batch, "raid", RaidCodes, Json.Obj(doc, "raidF"));
 
-        SyncCatalog(conn, tx, "dbo.SwGpu", "GpuId", Json.List(doc, "gpus"), (it, id, sort) =>
-            Db.Execute(conn, tx,
+        SyncCatalog(batch, "dbo.SwGpu", "GpuId", Json.List(doc, "gpus"), (it, id, sort) =>
+            batch.Add(
                 "MERGE dbo.SwGpu AS t USING (SELECT @id AS GpuId) AS s ON t.GpuId = s.GpuId " +
                 "WHEN MATCHED THEN UPDATE SET GpuName = @n, PriceCA = @p, PriceBenchmark = @pb, MonthlyCA = @mo, MonthlyBenchmark = @mob, SortOrder = @s, IsActive = 1 " +
                 "WHEN NOT MATCHED THEN INSERT (GpuId, GpuName, PriceCA, PriceBenchmark, MonthlyCA, MonthlyBenchmark, SortOrder) VALUES (@id, @n, @p, @pb, @mo, @mob, @s);",
@@ -252,12 +247,12 @@ public static class MasterRepository
                 "@mo", Json.Num(it, "monthly", 0, MaxMoney), "@mob", Json.Num(it, "monthlyB", 0, MaxMoney)));
     }
 
-    static void SaveFactors(SqlConnection conn, SqlTransaction tx, string type, string[] codes, IDictionary<string, object> values)
+    static void SaveFactors(Db.Batch batch, string type, string[] codes, IDictionary<string, object> values)
     {
         foreach (string code in codes)
         {
             if (!Json.Has(values, code)) continue;
-            Db.Execute(conn, tx,
+            batch.Add(
                 "MERGE dbo.SwHwFactor AS t USING (SELECT @t AS FactorType, @c AS Code) AS s ON t.FactorType = s.FactorType AND t.Code = s.Code " +
                 "WHEN MATCHED THEN UPDATE SET Factor = @f " +
                 "WHEN NOT MATCHED THEN INSERT (FactorType, Code, Name, Factor) VALUES (@t, @c, @c, @f);",
@@ -265,10 +260,10 @@ public static class MasterRepository
         }
     }
 
-    static void SaveLicences(SqlConnection conn, SqlTransaction tx, IDictionary<string, object> doc)
+    static void SaveLicences(Db.Batch batch, IDictionary<string, object> doc)
     {
-        SyncCatalog(conn, tx, "dbo.SwDbEngine", "DbId", Json.List(doc, "db"), (it, id, sort) =>
-            Db.Execute(conn, tx,
+        SyncCatalog(batch, "dbo.SwDbEngine", "DbId", Json.List(doc, "db"), (it, id, sort) =>
+            batch.Add(
                 "MERGE dbo.SwDbEngine AS t USING (SELECT @id AS DbId) AS s ON t.DbId = s.DbId " +
                 "WHEN MATCHED THEN UPDATE SET DbName = @n, PriceCA = @p, PriceBenchmark = @pb, MinCores = @min, SupportPct = @sup, SortOrder = @s, IsActive = 1 " +
                 "WHEN NOT MATCHED THEN INSERT (DbId, DbName, PriceCA, PriceBenchmark, MinCores, SupportPct, SortOrder) VALUES (@id, @n, @p, @pb, @min, @sup, @s);",
@@ -276,19 +271,19 @@ public static class MasterRepository
                 "@p", Json.Num(it, "price", 0, MaxMoney), "@pb", Json.Num(it, "priceB", 0, MaxMoney),
                 "@min", (int)Math.Round(Json.Num(it, "min", 0, 100000)), "@sup", Json.Num(it, "support", 0, MaxPct)));
 
-        SyncCatalog(conn, tx, "dbo.SwOsOption", "OsId", Json.List(doc, "os"), (it, id, sort) =>
-            Db.Execute(conn, tx,
+        SyncCatalog(batch, "dbo.SwOsOption", "OsId", Json.List(doc, "os"), (it, id, sort) =>
+            batch.Add(
                 "MERGE dbo.SwOsOption AS t USING (SELECT @id AS OsId) AS s ON t.OsId = s.OsId " +
                 "WHEN MATCHED THEN UPDATE SET OsName = @n, PriceCA = @p, PriceBenchmark = @pb, SortOrder = @s, IsActive = 1 " +
                 "WHEN NOT MATCHED THEN INSERT (OsId, OsName, PriceCA, PriceBenchmark, SortOrder) VALUES (@id, @n, @p, @pb, @s);",
                 "@id", id, "@n", Json.Text(it, "name", 100) ?? "Operating system", "@s", sort,
                 "@p", Json.Num(it, "price", 0, MaxMoney), "@pb", Json.Num(it, "priceB", 0, MaxMoney)));
 
-        SyncCatalog(conn, tx, "dbo.SwCatalogItem", "ItemId", Json.List(doc, "items"), (it, id, sort) =>
+        SyncCatalog(batch, "dbo.SwCatalogItem", "ItemId", Json.List(doc, "items"), (it, id, sort) =>
         {
             string cat = Json.Text(it, "cat", 3) == "svc" ? "svc" : "lic";
             string billing = Json.Text(it, "type", 4) == "year" ? "year" : "once";
-            Db.Execute(conn, tx,
+            batch.Add(
                 "MERGE dbo.SwCatalogItem AS t USING (SELECT @id AS ItemId) AS s ON t.ItemId = s.ItemId " +
                 "WHEN MATCHED THEN UPDATE SET ItemName = @n, Category = @c, Billing = @b, CostCA = @p, CostBenchmark = @pb, SortOrder = @s, IsActive = 1 " +
                 "WHEN NOT MATCHED THEN INSERT (ItemId, ItemName, Category, Billing, CostCA, CostBenchmark, SortOrder) VALUES (@id, @n, @c, @b, @p, @pb, @s);",
@@ -297,10 +292,10 @@ public static class MasterRepository
         });
     }
 
-    static void SaveValueCategories(SqlConnection conn, SqlTransaction tx, IDictionary<string, object> doc)
+    static void SaveValueCategories(Db.Batch batch, IDictionary<string, object> doc)
     {
-        SyncCatalog(conn, tx, "dbo.SwValueCategory", "CategoryId", Json.List(doc, "cats"), (it, id, sort) =>
-            Db.Execute(conn, tx,
+        SyncCatalog(batch, "dbo.SwValueCategory", "CategoryId", Json.List(doc, "cats"), (it, id, sort) =>
+            batch.Add(
                 "MERGE dbo.SwValueCategory AS t USING (SELECT @id AS CategoryId) AS s ON t.CategoryId = s.CategoryId " +
                 "WHEN MATCHED THEN UPDATE SET CategoryName = @n, Unit = @u, DefaultRate = @r, SortOrder = @s, IsActive = 1 " +
                 "WHEN NOT MATCHED THEN INSERT (CategoryId, CategoryName, Unit, DefaultRate, SortOrder) VALUES (@id, @n, @u, @r, @s);",
@@ -312,11 +307,11 @@ public static class MasterRepository
     /// Makes a catalogue table match the list: rows left out are marked inactive (kept for history),
     /// listed rows are inserted or updated in list order.
     /// </summary>
-    static void SyncCatalog(SqlConnection conn, SqlTransaction tx, string table, string idColumn, IList list,
+    static void SyncCatalog(Db.Batch batch, string table, string idColumn, IList list,
         Action<IDictionary<string, object>, string, int> upsert)
     {
         if (list == null) return;
-        Db.Execute(conn, tx, "UPDATE " + table + " SET IsActive = 0");
+        batch.Add("UPDATE " + table + " SET IsActive = 0");
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int sort = 0;
         foreach (object o in list)
@@ -330,7 +325,7 @@ public static class MasterRepository
         }
     }
 
-    static void SaveSettings(SqlConnection conn, SqlTransaction tx, string key, IDictionary<string, object> doc)
+    static void SaveSettings(Db.Batch batch, string key, IDictionary<string, object> doc)
     {
         foreach (SettingMap m in Settings)
         {
@@ -346,7 +341,7 @@ public static class MasterRepository
                 if (ca != null) valueCA = Json.Num(holder, "ca", 0, MaxRate);
                 if (b != null) valueB = Json.Num(holder, "b", 0, MaxRate);
             }
-            Db.Execute(conn, tx,
+            batch.Add(
                 "MERGE dbo.SwSetting AS t USING (SELECT @k AS SettingKey) AS s ON t.SettingKey = s.SettingKey " +
                 "WHEN MATCHED THEN UPDATE SET ValueCA = CASE WHEN @isText = 1 THEN t.ValueCA ELSE COALESCE(@ca, t.ValueCA) END, " +
                 "  ValueBenchmark = COALESCE(@b, t.ValueBenchmark), TextValue = CASE WHEN @isText = 1 THEN @txt ELSE t.TextValue END " +

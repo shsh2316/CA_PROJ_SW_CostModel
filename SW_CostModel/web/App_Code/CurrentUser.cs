@@ -1,5 +1,5 @@
 using System;
-using System.Data.SqlClient;
+using System.Data;
 using System.Security.Principal;
 using System.Web;
 
@@ -16,7 +16,8 @@ public sealed class CurrentUser
 
     public bool IsSignedIn { get { return !String.IsNullOrEmpty(Login); } }
 
-    public static CurrentUser Load(HttpContext ctx, SqlConnection conn)
+    /// <summary>Anonymous callers need no database. Throws ApiException when the database cannot be read.</summary>
+    public static CurrentUser Load(HttpContext ctx)
     {
         var u = new CurrentUser();
         IPrincipal p = ctx.User;
@@ -27,20 +28,19 @@ public sealed class CurrentUser
         u.Login = login.Length > 200 ? login.Substring(0, 200) : login;
         u.DisplayName = ShortName(u.Login);
 
-        const string sql =
+        string who = Db.Quote(u.Login);
+        string sql =
             "MERGE dbo.SwAppUser WITH (HOLDLOCK) AS t " +
-            "USING (SELECT @login AS UserLogin) AS s ON t.UserLogin = s.UserLogin " +
+            "USING (SELECT " + who + " AS UserLogin) AS s ON t.UserLogin = s.UserLogin " +
             "WHEN MATCHED AND t.LastSeenAt < DATEADD(HOUR, -1, SYSUTCDATETIME()) THEN UPDATE SET LastSeenAt = SYSUTCDATETIME() " +
-            "WHEN NOT MATCHED THEN INSERT (UserLogin, DisplayName) VALUES (@login, @name); " +
-            "SELECT DisplayName, IsAdmin FROM dbo.SwAppUser WHERE UserLogin = @login;";
-        using (SqlCommand cmd = Db.Command(conn, null, sql, "@login", u.Login, "@name", u.DisplayName))
-        using (SqlDataReader r = cmd.ExecuteReader())
+            "WHEN NOT MATCHED THEN INSERT (UserLogin, DisplayName) VALUES (" + who + ", " + Db.Quote(u.DisplayName) + "); " +
+            "SELECT DisplayName, IsAdmin FROM dbo.SwAppUser WHERE UserLogin = " + who + ";";
+        DataTable dt = Db.Select(sql);
+        if (dt.Rows.Count > 0)
         {
-            if (r.Read())
-            {
-                u.DisplayName = Db.Str(r, "DisplayName") ?? u.DisplayName;
-                u.IsAdmin = (bool)r["IsAdmin"];
-            }
+            DataRow r = dt.Rows[0];
+            u.DisplayName = Db.Str(r, "DisplayName") ?? u.DisplayName;
+            u.IsAdmin = r["IsAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsAdmin"]);
         }
         return u;
     }
