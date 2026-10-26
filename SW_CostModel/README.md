@@ -20,11 +20,11 @@ docs/
   PROJECT_SHEET.md                         the one-sheet project template: columns, allowed values, loading
   AUDIT.md                                 audit findings and what was changed
 web/                                       copy the CONTENTS of this folder to the IIS site
-  index.html                               the page
+  Index.aspx, Index.aspx.cs                the page and its code-behind
   web.config                               IIS settings
   config/connectionStrings.config          database connection (the only file to edit per server)
   api/estimator.ashx                       JSON API used by the page
-  App_Code/                                API code, compiled by IIS on first use
+  App_Code/                                API code and dbClassSql, compiled by IIS on first use
     ApiException.cs, Db.cs, Json.cs, CurrentUser.cs, MasterRepository.cs, ProjectRepository.cs
   assets/css/estimator.css                 page styles
   assets/css/fonts.css                     local font definitions

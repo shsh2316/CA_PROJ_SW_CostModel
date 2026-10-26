@@ -1,3 +1,4 @@
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="Index.aspx.cs" Inherits="IndexPage" EnableViewState="false" EnableSessionState="false" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +9,7 @@
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/estimator.css">
 </head>
-<body>
+<body id="pageBody" runat="server">
 <div class="wrap">
   <header class="top">
     <h1>Central Automation: estimate and quotation</h1>
