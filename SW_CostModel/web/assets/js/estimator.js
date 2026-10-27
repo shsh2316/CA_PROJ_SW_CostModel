@@ -754,13 +754,13 @@ function quoteHTML(st,R,meta){
   return '<div class="q-top"><div class="q-from"><h1>'+esc(q.from||'Central Automation')+'</h1><p class="mut">'+esc(q.fromAddr||'')+'</p></div>'+
     '<div class="q-meta"><h2>QUOTATION</h2><div>No. '+esc(q.no)+'</div><div>Date: '+esc(fmtD(vf)||q.date)+'</div>'+(vt?'<div>Valid until: '+esc(fmtD(vt))+'</div>':'')+
     (meta&&meta.stamp?'<div class="q-stamp">'+esc(meta.stamp)+'</div>':'')+'</div></div>'+
-    '<div class="q-to"><span class="mut">To</span><br><b>'+esc(q.to||'Client name')+'</b><p>'+esc(q.toAddr||'')+'</p></div>'+
+    ((q.to||q.toAddr)?'<div class="q-to"><span class="mut">To</span><br><b>'+esc(q.to||'')+'</b><p>'+esc(q.toAddr||'')+'</p></div>':'')+
     '<div class="q-subj">Subject: '+esc(q.ref||('Quotation for '+(s.name||'software application')))+'</div>'+
     '<h3>One-time price</h3><table><thead><tr><th style="width:36px">S.No</th><th>Description</th>'+heads()+'</tr></thead><tbody>'+rows+tot+'</tbody></table>'+
     words1+rec+val+
     '<h3>Technical specification</h3><div class="q-spec">'+spec.map(function(x){return '<div><span class="mut">'+esc(x[0])+'</span><span>'+esc(x[1])+'</span></div>';}).join('')+'</div>'+
     '<h3>Terms and conditions</h3><ol class="q-terms">'+terms.map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ol>'+
-    '<div class="q-sign"><span class="mut">'+(q.prepared?'Prepared by: '+esc(q.prepared):'')+'</span><div>For '+esc(q.from||'Central Automation')+'<br>Authorised signatory</div></div>';
+    '<div class="q-sign"><span class="mut">'+(q.prepared?'Prepared by: '+esc(q.prepared):'')+'</span><div>Signed by HOD<br>'+esc(q.from||'Central Automation')+'</div></div>';
 }
 
 /* ================= sync + update ================= */
