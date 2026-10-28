@@ -93,3 +93,22 @@ verified yet and leaves verified ones alone; an entry is identified by project n
 financial year and record type.
 
 Needs SQL Server 2017 or later.
+
+## Importing the CA project list (script 07)
+
+`database\07_import_ca_projects_list.sql` is generated from `CA_Projects_List_As_of_July_2026.xlsx`
+(190 projects) by `database\tools\generate_ca_projects_import.js`. The workbook has almost no cost data
+(no team size, days or hardware), so the script costs every project with the estimator's own calculation
+and these assumptions, which are also written at the top of the script:
+
+- **Team**: 1 person, Senior for AI / ML / vision / digital twin / mathematical model, otherwise Mid (3 people where the sheet says FTE 3).
+- **Duration**: working days between Start and End date ("till date" = 31 Jul 2026, "till next year" = 31 Mar 2027); 90 days when a date is missing.
+- **Complexity**: Very high for AI / ML / vision / digital twin, High for mathematical and rule-base models, otherwise Standard.
+- **Sizing**: estimator defaults (100 users, one server of 8 cores / 32 GB / 2 TB, SQL Server Standard, Windows Server, 3 years).
+- **Value**: the "Cal-2 (Gained)" amounts are a yearly benefit.
+- **Record**: In-Use = completed, In Progress = in progress, Failed = completed with "FAILED" in the Note; Maintenance = AMC, everything else = new project.
+
+Each project is inserted as a **verified** entry (with a "submit" and a "verify" row in the log) belonging to `@ImportUser`
+(default `Import`). Running the script again skips projects that already exist. To regenerate it after changing an
+assumption: `node database\tools\generate_ca_projects_import.js "CA_Projects_List_As_of_July_2026.xlsx" database\07_import_ca_projects_list.sql`
+(needs Node 18+ and Playwright).

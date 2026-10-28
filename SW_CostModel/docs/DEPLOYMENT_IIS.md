@@ -45,6 +45,7 @@ Open each script in SQL Server Management Studio as a sysadmin and run it, in or
 | `database\06_admins_and_checks.sql` | checks only: users, master row counts, the pool account's rights, the register (run it after the first sign-in) |
 | `database\04_import_legacy_register_csv.sql` | optional, only to bring in a CSV exported from the earlier claude.ai version |
 | `database\05_import_projects_csv.sql` | optional, loads the one-sheet project template saved as CSV (see `docs\PROJECT_SHEET.md`) |
+| `database\07_import_ca_projects_list.sql` | optional, one-off: the 190 projects of the CA project list (July 2026) as verified, costed register entries (see `docs\PROJECT_SHEET.md`). Run it after `01`-`03`. |
 
 Or from a command prompt on the SQL Server machine (Windows authentication, stops at the first error):
 
