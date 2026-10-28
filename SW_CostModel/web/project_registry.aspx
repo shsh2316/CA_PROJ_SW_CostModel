@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/estimator.css">
 </head>
-<body id="pageBody" runat="server">
+<body data-signed-in="<%: SignedInFlag %>" data-user="<%: UserName %>" data-admin="<%: AdminFlag %>">
 <div class="wrap">
   <header class="top">
     <h1>Central Automation: estimate and quotation</h1>

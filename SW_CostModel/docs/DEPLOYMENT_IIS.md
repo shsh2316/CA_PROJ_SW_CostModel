@@ -78,7 +78,7 @@ the `CCCConString` entry in `web\web.config`.
 
 1. In Visual Studio, check that the project includes every file under `SW_CostModel\web`
    (Solution Explorer > Show All Files > right-click > Include In Project):
-   `project_registry.aspx`, `project_report.aspx` (with their `.aspx.cs` and `.aspx.designer.cs`),
+   `project_registry.aspx`, `project_report.aspx` (with their `.aspx.cs`; the pages have no server controls, so no designer files),
    `api\estimator.ashx` (with `estimator.ashx.cs`), everything in `App_Code` (Build Action
    **Compile**), and `assets` (Build Action **Content**). The `database` and `docs` folders stay out.
    The settings in `SW_CostModel\web\web.config` (default document, security headers,
@@ -159,7 +159,7 @@ authentication to a local SQL Server:
 |---|---|
 | HTTP 500.19 or a configuration error page | a feature from step 1 is missing (usually ASP.NET 4.x), or `CCCConString` in `web.config` is missing or not valid XML. |
 | Configuration error naming `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | `bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll` or the `bin\roslyn` folder was not copied: publish again and copy the whole folder. |
-| "The name 'litBody' does not exist" (or another control name) when building | the `.aspx.designer.cs` file is not in the project: include it, or add the control there. |
+| Build error "The name 'xyz' does not exist" or "already contains a definition for 'form1'" | a leftover Visual Studio template page (for example `project1.aspx` with its `.cs` and `.designer.cs`) is in the project: remove it. The two pages here have no `runat="server"` controls and need no designer file. |
 | `CS0433` "type exists in both" when running locally | rename the `App_Code` folder (for example `Code`) so ASP.NET does not compile it a second time; published output is not affected. |
 | Page loads but says "The connection string 'CCCConString' is missing or not valid" | the entry is missing or misspelt in `web.config`. |
 | First page load is very slow, or a compile error appears once then goes | normal while IIS compiles; antivirus scanning `Temporary ASP.NET Files` can slow it. |

@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/estimator.css">
 </head>
-<body id="pageBody" runat="server">
+<body>
 <div class="wrap">
   <header class="top">
     <h1>Central Automation: project report</h1>
@@ -21,11 +21,10 @@
   </nav>
 
   <section>
-    <h2 class="pt" style="margin:0 0 4px;font-size:24px;font-weight:600"><asp:Literal ID="litTitle" runat="server" /></h2>
-    <p class="lead" style="margin:0 0 14px;color:var(--muted)"><asp:Literal ID="litLead" runat="server" /></p>
-    <asp:Literal ID="litMessage" runat="server" />
-    <asp:Literal ID="litFilters" runat="server" />
-    <asp:Literal ID="litBody" runat="server" />
+    <h2 class="pt" style="margin:0 0 4px;font-size:24px;font-weight:600"><%= TitleHtml %></h2>
+    <p class="lead" style="margin:0 0 14px;color:var(--muted)"><%= LeadHtml %></p>
+    <%= MessageHtml %>
+    <%= BodyHtml %>
   </section>
 </div>
 

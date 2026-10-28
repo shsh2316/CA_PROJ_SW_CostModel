@@ -11,6 +11,9 @@ using System.Web.UI;
 /// </summary>
 public partial class ProjectRegistryPage : Page
 {
+    // Written on the <body> tag by project_registry.aspx.
+    protected string SignedInFlag = "0", UserName = "", AdminFlag = "0";
+
     protected void Page_Load(object sender, EventArgs e)
     {
         Response.Cache.SetCacheability(HttpCacheability.NoCache);
@@ -20,8 +23,8 @@ public partial class ProjectRegistryPage : Page
         try { user = CurrentUser.Load(Context); }
         catch (ApiException) { }   // database unreachable: the page still opens and the script reports it
 
-        pageBody.Attributes["data-signed-in"] = user != null && user.IsSignedIn ? "1" : "0";
-        pageBody.Attributes["data-user"] = user != null ? user.DisplayName ?? "" : "";
-        pageBody.Attributes["data-admin"] = user != null && user.IsAdmin ? "1" : "0";
+        SignedInFlag = user != null && user.IsSignedIn ? "1" : "0";
+        UserName = user != null ? user.DisplayName ?? "" : "";
+        AdminFlag = user != null && user.IsAdmin ? "1" : "0";
     }
 }

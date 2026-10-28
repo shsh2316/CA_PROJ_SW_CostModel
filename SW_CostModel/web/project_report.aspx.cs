@@ -76,6 +76,9 @@ public partial class ProjectReportPage : Page
         new Col("Note", "Note", Fmt.Text, null, false, false)
     };
 
+    // The page writes these where the .aspx has <%= ... %>. They hold finished HTML (everything in them is encoded here).
+    protected string TitleHtml = "", LeadHtml = "", MessageHtml = "", BodyHtml = "";
+
     CurrentUser user;
     string fy, kind, status, review, q;
 
@@ -84,8 +87,8 @@ public partial class ProjectReportPage : Page
         Response.Cache.SetCacheability(HttpCacheability.NoCache);
         Response.Cache.SetNoStore();
 
-        litTitle.Text = "Project estimates";
-        litLead.Text = "";
+        TitleHtml = "Project estimates";
+        LeadHtml = "";
 
         try
         {
@@ -102,7 +105,7 @@ public partial class ProjectReportPage : Page
             return;
         }
 
-        litLead.Text = user.IsAdmin
+        LeadHtml = user.IsAdmin
             ? "Every estimate in the register, with its costs. Filter the list, open a project for its details, or download the rows as a CSV file for Excel."
             : "Your own estimates. Costs are added by an administrator when the estimate is verified, so they are not shown here.";
 
@@ -148,7 +151,7 @@ public partial class ProjectReportPage : Page
         if (rows.Rows.Count == 0)
         {
             sb.Append("<p class=\"note\">No projects match.</p>");
-            litBody.Text = sb.ToString();
+            BodyHtml = sb.ToString();
             return;
         }
 
@@ -186,7 +189,7 @@ public partial class ProjectReportPage : Page
         sb.Append("</tbody></table></div>");
         if (user.IsAdmin)
             sb.Append("<p class=\"note\">Totals add up the rows shown. A project can have more than one row (one per financial year and record type).</p>");
-        litBody.Text = sb.ToString();
+        BodyHtml = sb.ToString();
     }
 
     string FilterForm()
@@ -219,7 +222,7 @@ public partial class ProjectReportPage : Page
         if (rows.Rows.Count == 0)
         {
             Say("That project was not found, or it is not one of yours.");
-            litBody.Text = "<div class=\"rbar\"><a class=\"btn\" href=\"project_report.aspx\">Back to the list</a></div>";
+            BodyHtml = "<div class=\"rbar\"><a class=\"btn\" href=\"project_report.aspx\">Back to the list</a></div>";
             return;
         }
         DataRow r = rows.Rows[0];
@@ -229,7 +232,7 @@ public partial class ProjectReportPage : Page
             return;
         }
 
-        litTitle.Text = H(Convert.ToString(r["ProjectName"]));
+        TitleHtml = H(Convert.ToString(r["ProjectName"]));
         var sb = new StringBuilder();
         sb.Append("<div class=\"rbar\"><a class=\"btn\" href=\"project_report.aspx\">Back to the list</a>");
         sb.Append("<a class=\"btn primary\" href=\"project_report.aspx?id=" + HttpUtility.UrlEncode(id) + "&amp;download=csv\">Download CSV</a>");
@@ -255,7 +258,7 @@ public partial class ProjectReportPage : Page
             }
             sb.Append("</tbody></table></div>");
         }
-        litBody.Text = sb.ToString();
+        BodyHtml = sb.ToString();
     }
 
     /* ================= data ================= */
@@ -469,7 +472,7 @@ public partial class ProjectReportPage : Page
 
     void Say(string text)
     {
-        litMessage.Text = "<p class=\"msg\" role=\"alert\">" + H(text) + "</p>";
+        MessageHtml = "<p class=\"msg\" role=\"alert\">" + H(text) + "</p>";
     }
 
     static string H(string s)
