@@ -145,7 +145,6 @@ public partial class ProjectReportPage : Page
 
         string qs = QueryString();
         sb.Append("<div class=\"rbar\"><a class=\"btn primary\" href=\"project_report.aspx?" + qs + (qs.Length > 0 ? "&amp;" : "") + "download=csv\">Download CSV</a>");
-        sb.Append("<button type=\"button\" class=\"btn\" id=\"printBtn\">Print</button>");
         sb.Append("<span class=\"rcount\">" + rows.Rows.Count + (rows.Rows.Count == 1 ? " project" : " projects") + "</span></div>");
 
         if (rows.Rows.Count == 0)
@@ -159,7 +158,7 @@ public partial class ProjectReportPage : Page
         sb.Append("<div class=\"tw\"><table><thead><tr>");
         foreach (Col c in cols)
             sb.Append("<th" + NumClass(c) + ">" + H(c.Header) + "</th>");
-        sb.Append("</tr></thead><tbody>");
+        sb.Append("<th>Estimate</th></tr></thead><tbody>");
         foreach (DataRow r in rows.Rows)
         {
             sb.Append("<tr>");
@@ -172,7 +171,8 @@ public partial class ProjectReportPage : Page
                     text = "<span class=\"tag " + ReviewTag(Convert.ToString(r[c.Name])) + "\">" + text + "</span>";
                 sb.Append("<td" + NumClass(c) + ">" + text + "</td>");
             }
-            sb.Append("</tr>");
+            // The estimate itself (the quotation) as a PDF: made in the browser by report-pdf.js from the saved estimate of this entry
+            sb.Append("<td><button type=\"button\" class=\"btn sm\" data-pdf=\"" + H(Convert.ToString(r["RegisterId"])) + "\">PDF</button></td></tr>");
         }
         if (user.IsAdmin)
         {
@@ -184,7 +184,7 @@ public partial class ProjectReportPage : Page
                 else if (c.Format == Fmt.Money && rows.Columns.Contains(c.Name)) cell = Sum(rows, c.Name);
                 sb.Append("<td" + NumClass(c) + ">" + H(cell) + "</td>");
             }
-            sb.Append("</tr>");
+            sb.Append("<td></td></tr>");
         }
         sb.Append("</tbody></table></div>");
         if (user.IsAdmin)
@@ -236,7 +236,7 @@ public partial class ProjectReportPage : Page
         var sb = new StringBuilder();
         sb.Append("<div class=\"rbar\"><a class=\"btn\" href=\"project_report.aspx\">Back to the list</a>");
         sb.Append("<a class=\"btn primary\" href=\"project_report.aspx?id=" + HttpUtility.UrlEncode(id) + "&amp;download=csv\">Download CSV</a>");
-        sb.Append("<button type=\"button\" class=\"btn\" id=\"printBtn\">Print</button></div>");
+        sb.Append("<button type=\"button\" class=\"btn primary\" data-pdf=\"" + H(id) + "\">Download PDF</button></div>");
 
         sb.Append("<div class=\"tw\"><table class=\"kv\"><tbody>");
         foreach (Col c in Visible(false))

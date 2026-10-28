@@ -30,10 +30,11 @@ SW_CostModel/
     AUDIT.md                               audit of the first version (history)
   web/
     project_registry.aspx(.cs)             the estimator (masters, registration, approval, Excel upload, print)
-    project_report.aspx(.cs)               the report with CSV download
+    project_report.aspx(.cs)               the report: CSV download and a PDF of each project's estimate
     api/estimator.ashx(.cs)                JSON API used by the estimator
     App_Code/                              LoginModule, Db (all database access), dbClassSql, repositories, ...
     assets/css, assets/js, assets/fonts    styles, page logic and calculations, IBM Plex fonts (all local)
+    assets/js/report-pdf.js                the report page's PDF of an estimate (uses assets/js/vendor: jsPDF, html2canvas, MIT)
 ```
 
 ## Quick start

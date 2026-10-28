@@ -1,5 +1,8 @@
 (function(){
 "use strict";
+/* Library mode: a page without the estimator's own screens (the report page) loads this file only for the calculation and the quotation document;
+   it gets them through window.CAEstimate and nothing here touches its page. */
+var LIB=!document.getElementById('p-reg');
 
 /* ================= constants and defaults ================= */
 var LEVELS=['Junior','Mid','Senior','Lead','Architect'];
@@ -862,8 +865,8 @@ function onChange(e){
   else if(rf.r==='m'){var key=rf.p.split('.')[0];MDIRTY[key]=true;paintMasterSave();}
   else if(rf.r==='pv'){if(PVID==='draft')saveDraft();paintPrint(true);}
 }
-document.addEventListener('input',onChange);
-document.addEventListener('change',function(e){
+if(!LIB)document.addEventListener('input',onChange);
+if(!LIB)document.addEventListener('change',function(e){
   var t=e.target;
   if(t.id==='catAdd'){
     var it=M.lic.items.filter(function(x){return x.id===t.value;})[0];
@@ -1593,7 +1596,7 @@ async function xlSubmit(list){
 }
 
 /* ================= click handling ================= */
-document.addEventListener('click',function(e){
+if(!LIB)document.addEventListener('click',function(e){
   var t=e.target;if(!t||!t.dataset)return;
   if(t.closest){var stepBtn=t.closest('[data-step]');if(stepBtn)t=stepBtn;}   /* a click on the number inside a step button counts as a click on the button */
   var id=t.id;
@@ -1670,11 +1673,23 @@ document.addEventListener('click',function(e){
     }else{t.dataset.armed='1';t.textContent='Tap again';setTimeout(function(){if(t.isConnected){delete t.dataset.armed;t.textContent='Delete';}},2500);}
   }
 });
-document.addEventListener('input',function(e){
+if(!LIB)document.addEventListener('input',function(e){
   if(e.target.id==='adjVal')apAdj=e.target.value;
   else if(e.target.id==='apCharged')apCharged=e.target.value;
   else if(e.target.id==='apNote')apNote=e.target.value;
 });
+
+/* ================= library mode (report page) ================= */
+if(LIB){
+  window.CAEstimate={
+    /* the masters the server sends (labels such as benefit names come from them) */
+    loadMasters:function(doc){if(!doc)return;MKEYS.forEach(function(k){if(doc[k])mergeM(k,doc[k]);});},
+    /* the estimate behind a register entry, as the estimator opens it; null when the entry has no saved estimate */
+    stateOf:function(d){if(!d||!d.state)return null;var st=hydrate(d.state);if(d.costed===false)applyRates(st);return st;},
+    calc2:calc2,quoteHTML:quoteHTML,ensureQuote:ensureQuote
+  };
+  return;
+}
 
 /* ================= theme + start ================= */
 var THEME_KEY='ca-estimator.theme';

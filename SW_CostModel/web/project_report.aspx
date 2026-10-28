@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/estimator.css">
 </head>
-<body>
+<body data-login-url="<%: ResolveUrl("~/Default.aspx") %>">
 <div class="wrap">
   <header class="top">
     <h1>Central Automation: project report</h1>
@@ -25,10 +25,17 @@
     <h2 class="pt" style="margin:0 0 4px;font-size:24px;font-weight:600"><%= TitleHtml %></h2>
     <p class="lead" style="margin:0 0 14px;color:var(--muted)"><%= LeadHtml %></p>
     <%= MessageHtml %>
+    <p id="pdfMsg" class="msg" role="status" hidden></p>
     <%= BodyHtml %>
   </section>
 </div>
 
+<%-- PDF: the estimate document is built in the browser. jsPDF and html2canvas are bundled in assets/js/vendor (no internet needed);
+     estimator.js runs in library mode here and only provides the calculation and the quotation layout. --%>
+<script src="assets/js/vendor/html2canvas.min.js"></script>
+<script src="assets/js/vendor/jspdf.umd.min.js"></script>
+<script src="assets/js/estimator.js"></script>
+<script src="assets/js/report-pdf.js"></script>
 <script src="assets/js/report.js"></script>
 </body>
 </html>

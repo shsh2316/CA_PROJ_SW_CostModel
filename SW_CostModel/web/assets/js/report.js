@@ -11,6 +11,4 @@ var seg=document.querySelector('.seg');
 if(seg)seg.addEventListener('click',function(e){var b=e.target.closest('[data-theme-set]');if(b)setTheme(b.getAttribute('data-theme-set'));});
 var t0='light';try{t0=localStorage.getItem(THEME_KEY)||'light';}catch(e){}
 setTheme(t0);
-var pb=document.getElementById("printBtn");
-if(pb)pb.addEventListener("click",function(){window.print();});
 })();

@@ -262,12 +262,17 @@ header.top h1{font-size:clamp(20px,3.2vw,28px)}
 @media screen and (min-width:1920px){.wrap{zoom:1.15}}
 @media screen and (min-width:2560px){.wrap{zoom:1.3}}
 
+/* PDF of an estimate (report page): the document is laid out off-screen at the printable width, then turned into the PDF */
+.pdf-stage{position:absolute;left:-10000px;top:0;background:#fff;pointer-events:none}
+.pdf-paper{max-width:none!important;margin:0!important;padding:0 8px!important;border:0!important;overflow:visible!important;box-sizing:border-box}
+.btn.sm{min-height:34px;padding:4px 12px;font-size:13px}
+.msg.ok{border-color:var(--ok);background:transparent;color:var(--ok)}
 /* print comes last so nothing above can undo it */
 @media print{
   @page{size:A4;margin:14mm}
   :root{padding:0!important}
   html,body{background:#fff!important;color:#000!important;padding:0!important}
-  header.top,.pnav,#toast,.noprint,.rbar,.filters{display:none!important}
+  header.top,.pnav,#toast,.noprint,.rbar,.filters,.pdf-stage,#pdfMsg{display:none!important}
   .wrap{padding:0!important;max-width:none!important;zoom:1!important}
   .page{display:none!important}
   #p-print{display:block!important}

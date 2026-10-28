@@ -9,7 +9,7 @@ is a file on the server (the Content-Security-Policy header in `Web.config` also
 |---|---|
 | `/` (`Default.aspx`) | the login page |
 | `/SW_CostModel/web/project_registry.aspx` | estimate, registration, approval, masters, Excel upload, print |
-| `/SW_CostModel/web/project_report.aspx` | report of estimates, with CSV download |
+| `/SW_CostModel/web/project_report.aspx` | report of estimates: CSV download, and a **PDF** of each project's estimate (the quotation layout) |
 | `/SW_CostModel/web/api/estimator.ashx` | JSON API used by the estimator page |
 
 All database access goes through `dbClassSql` (`SW_CostModel\web\App_Code\dbClassSql.cs`, via `Db.cs`).
@@ -99,6 +99,10 @@ To undo the project-list import: `DELETE dbo.SwProjectRegister WHERE SubmittedBy
 6. Give the pool read access to the folder (normally already true through `IIS_IUSRS`):
    `icacls C:\inetpub\CentralAutomationEstimator /grant "IIS APPPOOL\CentralAutomationEstimator:(OI)(CI)RX"`
 
+The PDF is made in the browser by two libraries that are part of the site, `assets\js\vendor\jspdf.umd.min.js` and
+`html2canvas.min.js` (MIT licences next to them): nothing is downloaded. The PDF needs the entry's saved estimate (every entry made on the page or by
+script `07` has one; rows from script `04` do not and say so).
+
 All settings are in the root `Web.config` (the application root). There is no `web.config` inside `SW_CostModel\web`: IIS rejects
 `<authentication>` in a subfolder ("allowDefinition='MachineToApplication'").
 
@@ -144,7 +148,7 @@ entries they submitted themselves: `AllowSelfVerification` in `Web.config`).
 2. The estimator opens. **Approval** shows the register (190 projects after script `07`), not "The register is not available".
 3. Open `/SW_CostModel/web/api/estimator.ashx?action=init`: JSON with your name under `me` and `isAdmin` true (after signing in; without
    signing in it is a 401).
-4. Open `/SW_CostModel/web/project_report.aspx`: the register with cost columns and **Download CSV**.
+4. Open `/SW_CostModel/web/project_report.aspx`: the register with cost columns and **Download CSV**. Click **PDF** on a row (or **Download PDF** on a project's page): a PDF of that project's estimate downloads, in the same layout as the estimator's Print page (both cost columns, A4, tables continue on the next page with their header).
 
 ## 8. Before going live
 
@@ -186,6 +190,7 @@ entries they submitted themselves: `AllowSelfVerification` in `Web.config`).
 | A build error "The name 'xyz' does not exist" or "already contains a definition for 'form1'" | a leftover Visual Studio template page (for example `project1.aspx` with `.cs` and `.designer.cs`) is in the project: remove it. The pages here have no `runat="server"` controls and need no designer file |
 | "This browser cannot read Excel files" | use a current Edge or Chrome; files must be `.xlsx` |
 | First page load is very slow | normal while IIS compiles; antivirus scanning `Temporary ASP.NET Files` can slow it |
+| The PDF button says the libraries did not load | `assets\js\vendor\*.js` was not published (they are `Content` of the project) or the browser blocked them: F12 > Console |
 | Any other server error | Event Viewer > Windows Logs > Application (source ASP.NET 4.0.30319.0) |
 
 ## Browsers
