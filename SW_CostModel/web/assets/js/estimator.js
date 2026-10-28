@@ -474,8 +474,6 @@ var P_QUOTE=[
   F('Your company','pv.q.from','text'),F('Quotation number','pv.q.no','text'),
   F('Your address','pv.q.fromAddr','area',{wide:true,rows:2}),
   F('Quotation date','pv.q.date','date'),F('Valid for','pv.q.valid','number',{unit:'days'}),F('Prepared by','pv.q.prepared','text'),
-  F('Client name','pv.q.to','text'),
-  F('Client address','pv.q.toAddr','area',{wide:true,rows:2}),
   F('Project / reference','pv.q.ref','text',{wide:true}),
   F('Show effort (person-days) on quotation','pv.q.showEffort','check',{wide:true}),
   F('Show yearly running costs on quotation','pv.q.showRec','check',{wide:true}),
@@ -789,7 +787,6 @@ function quoteHTML(st,R,meta){
   return '<div class="q-top"><div class="q-from"><h1>'+esc(q.from||'Central Automation')+'</h1><p class="mut">'+esc(q.fromAddr||'')+'</p></div>'+
     '<div class="q-meta"><h2>QUOTATION</h2><div>No. '+esc(q.no)+'</div><div>Date: '+esc(fmtD(vf)||q.date)+'</div>'+(vt?'<div>Valid until: '+esc(fmtD(vt))+'</div>':'')+
     (meta&&meta.stamp?'<div class="q-stamp">'+esc(meta.stamp)+'</div>':'')+'</div></div>'+
-    ((q.to||q.toAddr)?'<div class="q-to"><span class="mut">To</span><br><b>'+esc(q.to||'')+'</b><p>'+esc(q.toAddr||'')+'</p></div>':'')+
     '<div class="q-subj">Project: '+esc(q.ref||s.name||'Software application')+'</div>'+
     '<h3>One-time price</h3><table><thead><tr><th style="width:36px">S.No</th><th>Description</th>'+heads()+'</tr></thead><tbody>'+rows+tot+'</tbody></table>'+
     words1+rec+val+

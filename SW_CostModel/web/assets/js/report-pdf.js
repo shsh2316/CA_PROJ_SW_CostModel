@@ -48,7 +48,6 @@ function documentFor(d){
   var E=window.CAEstimate,st=E.stateOf(d);
   if(!st)return null;
   st.q.basis='both';                        // Benchmark, Central Automation and Saving side by side
-  st.q.to='';st.q.toAddr='';                // no "To" block: the document starts with the project line
   st.q.ref='';                              // and that line is the project title (not a free-text reference)
   E.ensureQuote(st);
   st.q.no='QTN-'+String(st.q.date||'').replace(/-/g,'')+'-'+tag(d._id);   // its own number, not the same "-01" for every project
