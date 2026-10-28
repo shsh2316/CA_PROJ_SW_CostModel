@@ -135,7 +135,9 @@ const num = (n) => String(Math.round(n * 100) / 100);
   page.on('pageerror', (e) => pageErrors.push(e.message));
 
   /* The page, served from memory: aspx tags removed, estimator.js with a hook before its last line. */
-  const html = fs.readFileSync(path.join(WEB, 'project_registry.aspx'), 'utf8').replace(/^<%@[^\n]*\n/, '').replace(/<%[:=][^%]*%>/g, '');
+  /* (the workbook reader, xlsx-lite.js, is loaded by the upload page, not the estimator page: add it here) */
+  const html = fs.readFileSync(path.join(WEB, 'project_registry.aspx'), 'utf8').replace(/^<%@[^\n]*\n/, '').replace(/<%[:=][^%]*%>/g, '')
+    .replace('<script src="assets/js/estimator.js">', '<script src="assets/js/xlsx-lite.js"></script>\n<script src="assets/js/estimator.js">');
   let js = fs.readFileSync(path.join(WEB, 'assets', 'js', 'estimator.js'), 'utf8');
   const tail = js.lastIndexOf('})();');
   if (tail < 0) throw new Error('estimator.js: closing "})();" not found');

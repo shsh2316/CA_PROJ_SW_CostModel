@@ -265,6 +265,19 @@ header.top h1{font-size:clamp(20px,3.2vw,28px)}
 .btn.sm{min-height:34px;padding:4px 12px;font-size:13px}
 .msg.ok{border-color:var(--ok);background:transparent;color:var(--ok)}
 /* print comes last so nothing above can undo it */
+/* Excel upload page */
+.ustep{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.ustep>li{min-width:0;border-left:3px solid var(--steel);padding:0 0 6px 14px}
+.ustep h3.sub{margin:10px 0 6px}
+.drop{border:2px dashed var(--line);border-radius:4px;background:var(--surface);padding:22px 16px;text-align:center}
+.drop.over{border-color:var(--steel);background:var(--steel-soft)}
+.guide{margin-top:12px}
+.guide>summary{cursor:pointer;color:var(--steel);font-weight:500;min-height:36px;display:flex;align-items:center}
+.guide .tw{margin-top:8px;max-height:420px;overflow:auto}
+.guide td{vertical-align:top}
+.usum{margin:0 0 8px;font-weight:500}
+td.acts{white-space:nowrap}
+
 @media print{
   @page{size:A4;margin:14mm}
   :root{padding:0!important}

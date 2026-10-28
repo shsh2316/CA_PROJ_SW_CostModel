@@ -71,6 +71,7 @@
     <Content Include="Default.aspx" />
     <Content Include="SW_CostModel\web\project_registry.aspx" />
     <Content Include="SW_CostModel\web\project_report.aspx" />
+    <Content Include="SW_CostModel\web\project_upload.aspx" />
     <Content Include="SW_CostModel\web\api\estimator.ashx" />
     <Content Include="SW_CostModel\web\assets\**\*.*" />
     <!-- Content, Scripts, Standards and fonts (Bootstrap, Font Awesome, ...) are copied into the project root from the other portal; add them here or publish them with the site -->
@@ -87,6 +88,10 @@
     </Compile>
     <Compile Include="SW_CostModel\web\project_report.aspx.cs">
       <DependentUpon>project_report.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="SW_CostModel\web\project_upload.aspx.cs">
+      <DependentUpon>project_upload.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
     <Compile Include="SW_CostModel\web\api\estimator.ashx.cs">

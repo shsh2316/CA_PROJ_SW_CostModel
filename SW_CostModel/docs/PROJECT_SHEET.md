@@ -6,8 +6,8 @@ is up to three benefits with a quantity per year.
 
 Two ways to load the filled sheet, both giving the same costs:
 
-1. **Excel upload page** (admins): upload the .xlsx. Every row's cost, value and payback
-   show at once; open, print or submit any of them.
+1. **Excel upload page** (`project_upload.aspx`, admins): upload the .xlsx. Every row's cost, value and payback
+   show at once; submit any of them, or open one in the estimator first.
 2. **Straight into SQL Server**: save the sheet as CSV and run
    `database\05_import_projects_csv.sql`. Each project lands on the Approval page, awaiting an
    admin, who costs and verifies it there.

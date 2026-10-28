@@ -8,7 +8,8 @@ is a file on the server (the Content-Security-Policy header in `Web.config` also
 | URL | What |
 |---|---|
 | `/` (`Default.aspx`) | the login page |
-| `/SW_CostModel/web/project_registry.aspx` | estimate, registration, approval, masters, Excel upload, print |
+| `/SW_CostModel/web/project_registry.aspx` | estimate, registration, approval, masters, print |
+| `/SW_CostModel/web/project_upload.aspx` | Excel upload: download the template, upload filled workbooks (one row per project), check the costs, submit |
 | `/SW_CostModel/web/project_report.aspx` | report of estimates: CSV download, and a **PDF** of each project's estimate (the quotation layout) |
 | `/SW_CostModel/web/api/estimator.ashx` | JSON API used by the estimator page |
 
@@ -149,6 +150,7 @@ entries they submitted themselves: `AllowSelfVerification` in `Web.config`).
 3. Open `/SW_CostModel/web/api/estimator.ashx?action=init`: JSON with your name under `me` and `isAdmin` true (after signing in; without
    signing in it is a 401).
 4. Open `/SW_CostModel/web/project_report.aspx`: the register with cost columns and **Download CSV**. Click **PDF** on a row (or **Download PDF** on a project's page): a PDF of that project's estimate downloads, in the same layout as the estimator's Print page (both cost columns, A4, tables continue on the next page with their header).
+5. Open `/SW_CostModel/web/project_upload.aspx`: **Download blank template** gives an `.xlsx`; fill one row, upload it, check the cost shown, and **Submit** it. It then appears on the estimator's Approval page awaiting verification (delete it there afterwards if it was only a test). Needs a current Edge or Chrome (the browser reads the workbook itself; nothing is installed on the server).
 
 ## 8. Before going live
 

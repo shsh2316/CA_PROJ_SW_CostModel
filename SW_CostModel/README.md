@@ -1,6 +1,6 @@
 # Central Automation: estimate and quotation
 
-Estimator for software projects (Masters, Registration, Approval, Excel upload, Print) with
+Estimator for software projects (Masters, Registration, Approval, Print), an Excel upload page, and a report with
 Central Automation cost against a software-company benchmark, and the value each project
 creates. Runs on Windows IIS with SQL Server, with no internet access needed on the server or
 the client.
@@ -29,7 +29,8 @@ SW_CostModel/
     CATS_SAMPLE_ESTIMATE.md                a worked sample estimate
     AUDIT.md                               audit of the first version (history)
   web/
-    project_registry.aspx(.cs)             the estimator (masters, registration, approval, Excel upload, print)
+    project_registry.aspx(.cs)             the estimator (masters, registration, approval, print)
+    project_upload.aspx(.cs)               the Excel upload page: template, upload, check the costs, submit (assets/js/upload.js)
     project_report.aspx(.cs)               the report: CSV download and a PDF of each project's estimate
     api/estimator.ashx(.cs)                JSON API used by the estimator
     App_Code/                              LoginModule, Db (all database access), dbClassSql, repositories, ...
@@ -78,13 +79,14 @@ The team fills **one Excel sheet, one row per project**: project details, a team
 (and its usual level), server size, and up to three benefits with a quantity per year. No
 prices, no role-by-role breakdown, no explanations.
 
-1. An admin downloads the blank template from **Excel upload** (its drop-down lists come from
+1. An admin downloads the blank template from the **Excel upload** page (`project_upload.aspx`) (its drop-down lists come from
    the current masters), or takes `database\templates\projects-template.xlsx`.
 2. The team fills it and sends it back; one file can hold many projects.
 3. Load it either way:
    - **Excel upload** page: every project's cost, total against the benchmark, value per year
-     and payback show at once, with any unreadable answers listed by line. Open, print, submit
-     or download a cost summary.
+     and payback show at once, with any unreadable answers listed by line. A project that
+     repeats another in the file, or that is already verified in the register, is flagged and
+     not sent. Submit one or all, open one in the estimator, or download a cost summary.
    - **Straight into SQL Server**: save the sheet as CSV and run
      `database\05_import_projects_csv.sql`. It checks every value, imports nothing if
      anything is wrong, and adds the projects as entries awaiting an admin's costing and

@@ -873,12 +873,11 @@ if(!LIB)document.addEventListener('change',function(e){
   if(t.id==='regFY'){regFY=t.value;renderAppr();return;}
   if(t.id==='regView'){regView=t.value;renderAppr();return;}
   if(t.id==='pvSel'){selectPV(t.value);return;}
-  if(t.id==='xlFile'){xlUpload(t.files);t.value='';return;}
   if(t.dataset&&t.dataset.path&&t.tagName==='SELECT')onChange(e);
 });
 
 /* ================= pages ================= */
-var PAGE='reg',ADMIN_PAGES=['master','print','xl'];
+var PAGE='reg',ADMIN_PAGES=['master','print'];
 /* Shows the pages this person may use. Admins see everything; others see Registration and their own entries. */
 function paintNav(){
   var adm=isAdmin();
@@ -900,7 +899,6 @@ function gotoPage(id){
   else if(id==='reg')update();
   else if(id==='appr')renderAppr();
   else if(id==='print')paintPrint();
-  else if(id==='xl')renderXl();
   window.scrollTo({top:0});
 }
 
@@ -1336,7 +1334,6 @@ var PVID='draft',PVSTATE=null;
 function PV(){return (PVID==='draft'||!PVSTATE)?S:PVSTATE;}
 function pvStamp(){
   if(PVID==='draft')return 'DRAFT: not submitted';
-  if(PVID.indexOf('up:')===0)return 'DRAFT: from Excel, not submitted';
   var d=findReg(PVID);
   if(!d)return '';
   return wfOf(d)==='verified'?'VERIFIED':'DRAFT: awaiting verification';
@@ -1345,15 +1342,13 @@ function fillPvSel(){
   var sel=$('#pvSel');if(!sel)return;
   var list=regDocs.filter(function(d){return d.state;}).sort(function(a,b){var ra=wfOf(a)==='verified'?0:1,rb=wfOf(b)==='verified'?0:1;return ra-rb||String(b.fy).localeCompare(String(a.fy))||String(a.name).localeCompare(String(b.name));});
   sel.innerHTML='<option value="draft">Current registration (unsaved draft)</option>'+
-    UPL.map(function(u,i){return u.st?'<option value="up:'+i+'">'+esc('Excel: '+(u.st.name||u.file)+' ('+u.file+')')+'</option>':'';}).join('')+
     list.map(function(d){return '<option value="'+esc(d._id)+'">'+esc((d.name||'')+', FY '+d.fy+', '+(KIND[d.kind]||d.kind)+' ('+WF[wfOf(d)]+')')+'</option>';}).join('');
-  if(PVID.indexOf('up:')===0?!UPL[+PVID.slice(3)]:(PVID!=='draft'&&!findReg(PVID))){PVID='draft';PVSTATE=null;}
+  if(PVID!=='draft'&&!findReg(PVID)){PVID='draft';PVSTATE=null;}
   sel.value=PVID;
 }
 function selectPV(id){
   PVID=id;PVSTATE=null;
-  if(id.indexOf('up:')===0){var u=UPL[+id.slice(3)];if(u&&u.st)PVSTATE=u.st;else PVID='draft';}
-  else if(id!=='draft'){var d=findReg(id);if(d&&d.state){PVSTATE=stateOf(d);}else{PVID='draft';}}
+  if(id!=='draft'){var d=findReg(id);if(d&&d.state){PVSTATE=stateOf(d);}else{PVID='draft';}}
   paintPrint();
 }
 function paintPrint(fromField){
@@ -1374,13 +1369,13 @@ function doPrint(){
   try{window.print();}catch(err){document.title=old;toast('Use your browser menu: Print, then Save as PDF');}
 }
 
-/* ================= Excel template and upload (admins) =================
+/* ================= Excel template and reading a filled sheet =================
    The team fills ONE sheet, one row per project, with no prices: the team is a head-count,
-   value creation is up to three benefits with a quantity per year. An admin uploads the
-   filled workbook and gets the costs at once, worked out with the current masters.
+   value creation is up to three benefits with a quantity per year. The upload page
+   (project_upload.aspx, assets/js/upload.js) uses the functions below through window.CAEstimate.xl
+   to make the template and to read a filled workbook; the costs come from calc2 as everywhere.
    The same sheet saved as CSV loads straight into SQL Server with
    database\05_import_projects_csv.sql, so keep the two column lists in step. */
-var UPL=[];
 var XL_YESNO=[['yes','Yes'],['no','No']];
 var XL_CX=[['low','Low'],['std','Standard'],['high','High'],['vhigh','Very high']];
 var XL_HINT='Required';   // the hint under "Project name"; that row is not a project
@@ -1529,69 +1524,6 @@ function xlProject(cols,cell,label,missing){
   return {file:label,st:s,warn:warn};
 }
 
-/* ---------- the Excel page ---------- */
-function xlUpload(files){
-  var list=Array.prototype.slice.call(files||[]);if(!list.length)return;
-  toast('Reading '+list.length+' workbook'+(list.length>1?'s':'')+'…');
-  Promise.all(list.map(function(f){
-    return f.arrayBuffer().then(window.XlsxLite.read).then(function(book){return xlParse(book,f.name);})
-      .catch(function(e){return [{file:f.name,error:(e&&e.message)||'Could not read this file.'}];});
-  })).then(function(res){
-    var rows=[].concat.apply([],res);
-    UPL=UPL.concat(rows);renderXl();fillPvSel();
-    var ok=rows.filter(function(u){return u.st;}).length;
-    toast(ok+' project'+(ok===1?'':'s')+' read'+(rows.length>ok?', '+(rows.length-ok)+' with problems':''));
-  });
-}
-function xlRow(u,i){
-  if(!u.st)return '<tr><td>'+esc(u.file)+'</td><td colspan="7"><span class="tag warn">Not read</span> '+esc(u.error)+'</td><td>'+actBtn('xl-remove',String(i),'Remove','del')+'</td></tr>';
-  var s=u.st,R=calc2(s),B=R.b;
-  var warn=u.warn.length?'<span class="sub2" style="color:var(--warn)">'+u.warn.slice(0,4).map(esc).join('<br>')+(u.warn.length>4?'<br>and '+(u.warn.length-4)+' more':'')+'</span>':'<span class="sub2" style="color:var(--ok)">All answers read</span>';
-  var acts=actBtn('xl-open',String(i),'Open')+actBtn('xl-print',String(i),'Print')+(u.submitted?'<span class="tag ok">Submitted</span>':actBtn('xl-submit',String(i),'Submit','ok'))+actBtn('xl-remove',String(i),'Remove','del');
-  return '<tr><td>'+esc(u.file)+'</td><td>'+esc(s.name)+'<span class="sub2">'+esc([s.q.to,s.q.prepared?'by '+s.q.prepared:'','FY '+s.reg.fy,KIND[s.reg.kind],R.headcount?R.headcount+' people':''].filter(Boolean).join(' · '))+'</span>'+warn+'</td>'+
-    '<td class="num">'+inr(R.oneTotal)+'</td><td class="num">'+inr(R.steady.total)+'</td><td class="num">'+inr(R.tco)+'</td><td class="num">'+inr(B.tco)+'</td>'+
-    '<td class="num">'+inr(R.val.yearly)+'</td><td class="num">'+years(R.val.payback)+'</td><td style="white-space:nowrap">'+acts+'</td></tr>';
-}
-function renderXl(){
-  var box=$('#xlbox');if(!box||!isAdmin())return;
-  var h='<h2 class="pt">Excel upload</h2><p class="lead">Give your team the template: one sheet, one row per project, no prices. They fill the project, a team head-count, the server size and up to three benefits. Upload the filled workbook here: the cost of every project is worked out at once with the current masters.</p>'+
-    '<div class="actions"><button type="button" class="btn" id="xlTpl">Download blank template</button>'+
-    '<label class="btn primary" for="xlFile" style="display:inline-flex;align-items:center">Upload filled workbooks</label>'+
-    '<input type="file" id="xlFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden></div>'+
-    '<p class="note">One workbook can hold many projects, and you can upload several workbooks at once. The drop-down lists come from the masters, so download a fresh template after changing them. The same sheet saved as CSV can also be loaded straight into SQL Server (database\\05_import_projects_csv.sql).</p>';
-  if(UPL.length){
-    h+='<h3 class="sub">Uploaded projects</h3><div class="tw"><table class="dual"><thead><tr><th>File and line</th><th>Project and checks</th><th class="num">One-time (CA)</th><th class="num">Per year (CA)</th><th class="num">Total cost (CA)</th><th class="num">Total benchmark</th><th class="num">Value / year</th><th class="num">Payback</th><th></th></tr></thead><tbody>'+
-      UPL.map(xlRow).join('')+'</tbody></table></div>'+
-      '<p class="note">Totals are over each project\'s years of ownership. Open a project to see the full breakdown, change anything (for example split the team into roles), or submit it from Registration.</p>'+
-      '<div class="actions"><button type="button" class="btn primary" id="xlSummary">Download cost summary (Excel)</button><button type="button" class="btn" id="xlSubmitAll">Submit all to the register</button><button type="button" class="btn" id="xlClear">Clear the list</button></div>';
-  }
-  box.innerHTML=h;
-}
-function xlSummary(){
-  var X=window.XlsxLite,st=X.style;
-  var head=['File and line','Project','Department / client','Prepared by','Financial year','Record as','Delivery model','Person-days','People','One-time CA ₹','One-time benchmark ₹','Yearly CA ₹','Yearly benchmark ₹','Years','Total cost CA ₹','Total benchmark ₹','Saving vs benchmark ₹','Value created per year ₹','One-time value ₹','Value over the years ₹','Return on cost %','Payback (years)','Checks'];
-  var rows=[head.map(function(h){return {v:h,s:st.head};})];
-  UPL.forEach(function(u){
-    if(!u.st)return;
-    var s=u.st,R=calc2(s),B=R.b,r=Math.round;
-    rows.push([u.file,s.name,s.q.to,s.q.prepared,s.reg.fy,KIND[s.reg.kind],s.model==='once'?'One-time setup':'Yearly model',r(R.pd),R.headcount,r(R.oneTotal),r(B.oneTotal),r(R.steady.total),r(B.steady.total),R.H,
-      r(R.tco),r(B.tco),r(B.tco-R.tco),r(R.val.yearly),r(R.val.once),r(R.val.total),R.val.roi==null?'':r(R.val.roi*100),R.val.payback==null?'':Math.round(R.val.payback*10)/10,u.warn.join(' ')]
-      .map(function(v,i){return {v:v,s:typeof v==='number'&&i>=9&&i!==13?st.calc:0};}));
-  });
-  download(X.write([{name:'Cost summary',rows:rows,freeze:1,cols:[28,30,22,18,10,16,16,11,8,15,15,15,15,7,15,15,15,15,15,15,10,10,60]}]),'cost-summary.xlsx');
-}
-async function xlSubmit(list){
-  if(DBSTATE!=='ready'){toast('The register is not available: '+DBERR);return;}
-  if(!ME.id){toast('Sign in to submit entries');return;}
-  var done=0,fail='';
-  for(var k=0;k<list.length;k++){
-    var u=UPL[list[k]];if(!u||!u.st||u.submitted)continue;
-    try{await submitEntry(u.st,calc2(u.st),'','');u.submitted=true;done++;}catch(e){fail=u.file+': '+(e.message||'could not submit');}
-  }
-  renderXl();loadRegister();
-  toast(fail||('Submitted '+done+' entr'+(done===1?'y':'ies')+' for verification'));
-}
-
 /* ================= click handling ================= */
 if(!LIB)document.addEventListener('click',function(e){
   var t=e.target;if(!t||!t.dataset)return;
@@ -1620,10 +1552,6 @@ if(!LIB)document.addEventListener('click',function(e){
   if(id==='cancelEdit'){editingId=null;editingWf='';S.reg.reply='';update();return;}
   if(id==='mSave'){saveMaster(MTAB);return;}
   if(id==='regCsv'){exportReg();return;}
-  if(id==='xlTpl'){try{download(xlTemplate(),'estimate-template.xlsx');toast('Template ready');}catch(x){toast('Could not make the template');}return;}
-  if(id==='xlSummary'){xlSummary();toast('Cost summary ready');return;}
-  if(id==='xlSubmitAll'){xlSubmit(UPL.map(function(u,i){return i;}));return;}
-  if(id==='xlClear'){UPL=[];if(PVID.indexOf('up:')===0){PVID='draft';PVSTATE=null;}renderXl();fillPvSel();return;}
   if(id==='printBtn'){doPrint();return;}
   if(t.dataset.add==='team'){S.team.push({role:'',level:'Mid',people:1,days:'',alloc:100});S.dirty=true;$('#teamWrap').innerHTML=teamHTML();update();return;}
   if(t.dataset.add==='other'){S.other.push({name:'New item',cat:'lic',type:'once',cost:0,costB:0,qty:1});S.dirty=true;$('#otherWrap').innerHTML=otherHTML();update();return;}
@@ -1657,10 +1585,6 @@ if(!LIB)document.addEventListener('click',function(e){
   else if(act==='edit')editEntry(rid);
   else if(act==='copy')copyEntry(rid);
   else if(act==='printit'){PVID=rid;var dd=findReg(rid);PVSTATE=dd&&dd.state?stateOf(dd):null;if(!PVSTATE)PVID='draft';gotoPage('print');}
-  else if(act==='xl-open'){var u=UPL[+rid];if(u&&u.st){S=clone(u.st);S.dirty=true;editingId=null;editingWf='';buildWizard();STEP='review';gotoPage('reg');toast('Loaded from Excel. Change anything, then submit.');}}
-  else if(act==='xl-print'){PVID='up:'+rid;PVSTATE=(UPL[+rid]||{}).st||null;if(!PVSTATE)PVID='draft';gotoPage('print');}
-  else if(act==='xl-submit')xlSubmit([+rid]);
-  else if(act==='xl-remove'){UPL.splice(+rid,1);if(PVID.indexOf('up:')===0){PVID='draft';PVSTATE=null;}renderXl();fillPvSel();}
   else if(act==='del'){
     if(t.dataset.armed){
       var d=findReg(rid);
@@ -1683,7 +1607,13 @@ if(LIB){
     loadMasters:function(doc){if(!doc)return;MKEYS.forEach(function(k){if(doc[k])mergeM(k,doc[k]);});},
     /* the estimate behind a register entry, as the estimator opens it; null when the entry has no saved estimate */
     stateOf:function(d){if(!d||!d.state)return null;var st=hydrate(d.state);if(d.costed===false)applyRates(st);return st;},
-    calc2:calc2,quoteHTML:quoteHTML,ensureQuote:ensureQuote
+    calc2:calc2,quoteHTML:quoteHTML,ensureQuote:ensureQuote,
+    /* upload page: the answers of api/estimator.ashx?action=init (masters, and whether this person is an admin, who gets the cost figures) */
+    session:function(init){init=init||{};window.CAEstimate.loadMasters(init.masters);applyMe(init.me);DBSTATE='ready';return ISADMIN;},
+    xl:{cols:xlCols,hint:function(c){return xlHint(c,newEstimate());},template:xlTemplate,parse:xlParse,headRows:2},
+    figuresOf:figuresOf,savedState:savedState,slug:slug,api:api,
+    fmt:{inr:inr,years:years,esc:esc,num:num,KIND:KIND},
+    draftKey:DSTORE
   };
   return;
 }

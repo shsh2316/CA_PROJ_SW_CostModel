@@ -19,7 +19,7 @@
     <button type="button" data-page="master">Masters</button>
     <button type="button" data-page="reg">Registration</button>
     <button type="button" data-page="appr">Approval</button>
-    <button type="button" data-page="xl">Excel upload</button>
+    <a href="project_upload.aspx">Excel upload</a>
     <button type="button" data-page="print">Print</button>
     <a href="project_report.aspx">Report</a>
     <a href="<%= ResolveUrl("~/Default.aspx") %>?logout=1">Sign out</a>
@@ -44,10 +44,6 @@
     <div id="apdetail"></div>
   </section>
 
-  <section class="page" id="p-xl">
-    <div id="xlbox"></div>
-  </section>
-
   <section class="page" id="p-print">
     <div class="noprint">
       <h2 class="pt" style="margin:0 0 4px;font-size:24px;font-weight:600">Estimate and print</h2>
@@ -65,7 +61,6 @@
 </div>
 <div id="toast" role="status"></div>
 
-<script src="assets/js/xlsx-lite.js"></script>
 <script src="assets/js/estimator.js"></script>
 </body>
 </html>
