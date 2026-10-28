@@ -1,9 +1,9 @@
 # Deploying on Windows IIS (no internet)
 
-Everything the site needs is in this repository. The server needs no internet access,
-no NuGet download, no build step and no Node.js. IIS compiles the C# in `App_Code`, the two
-`.aspx.cs` pages and `api\estimator.ashx` itself the first time the site is opened. The C# 6/7
-compiler it uses (needed by `dbClassSql.cs`) is copied from this repository in step 3.
+The site is an ASP.NET Web Forms **Web Application project** (`CA_PROJECT_COSTING_MODEL.csproj`):
+you build it in Visual Studio and publish the result, which is precompiled into `bin`. The server
+needs no internet access, no NuGet download, no build step and no Node.js, and no C# compiler
+beyond what `bin` already holds.
 
 The site has two pages and one API, all reading and writing SQL Server through `dbClassSql`:
 
@@ -76,21 +76,17 @@ the `CCCConString` entry in `web\web.config`.
 
 ## 3. IIS site
 
-1. Copy the **contents of the `web` folder** to the server, for example
-   `C:\inetpub\CentralAutomationEstimator`. Only that folder goes on the web server;
-   `database` and `docs` do not.
-2. Add the C# compiler. Run this from the repository folder on a machine that has the whole
-   repository (the `packages` folder is next to `SW_CostModel`), changing the site path:
-
-   ```bat
-   set SITE=C:\inetpub\CentralAutomationEstimator
-   if not exist %SITE%\bin mkdir %SITE%\bin
-   copy bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll %SITE%\bin\
-   robocopy packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.2.0.1\tools\RoslynLatest %SITE%\bin\roslyn /E
-   ```
-
-   `web.config` already points to it (`system.codedom`). Without these files the site shows a
-   configuration error mentioning `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`.
+1. In Visual Studio, check that the project includes every file under `SW_CostModel\web`
+   (Solution Explorer > Show All Files > right-click > Include In Project):
+   `project_registry.aspx`, `project_report.aspx` (with their `.aspx.cs` and `.aspx.designer.cs`),
+   `api\estimator.ashx` (with `estimator.ashx.cs`), everything in `App_Code` (Build Action
+   **Compile**), and `assets` (Build Action **Content**). The `database` and `docs` folders stay out.
+   The settings in `SW_CostModel\web\web.config` (default document, security headers,
+   Windows authentication, `CCCConString`) must be in the project's `Web.config`.
+2. Build > Publish Selection > Folder, configuration **Release**. The published folder holds the
+   pages, `assets`, `Web.config` and `bin` (including `bin\roslyn`, the compiler ASP.NET uses for the
+   page markup). Copy that folder's contents to the server, for example
+   `C:\inetpub\CentralAutomationEstimator`.
 3. IIS Manager > Application Pools > Add Application Pool:
    name `CentralAutomationEstimator`, .NET CLR version **v4.0**, pipeline mode **Integrated**.
    Leave **Maximum Worker Processes** at 1 (`dbClassSql` shares one database connection per process).
@@ -162,7 +158,9 @@ authentication to a local SQL Server:
 | Symptom | Cause and fix |
 |---|---|
 | HTTP 500.19 or a configuration error page | a feature from step 1 is missing (usually ASP.NET 4.x), or `CCCConString` in `web.config` is missing or not valid XML. |
-| Configuration error naming `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`, or `CS1002` / `CS1026` / `CS8..` compile errors in `dbClassSql.cs` | the compiler files are missing (step 3.2): `bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll` and the `bin\roslyn` folder. |
+| Configuration error naming `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | `bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll` or the `bin\roslyn` folder was not copied: publish again and copy the whole folder. |
+| "The name 'litBody' does not exist" (or another control name) when building | the `.aspx.designer.cs` file is not in the project: include it, or add the control there. |
+| `CS0433` "type exists in both" when running locally | rename the `App_Code` folder (for example `Code`) so ASP.NET does not compile it a second time; published output is not affected. |
 | Page loads but says "The connection string 'CCCConString' is missing or not valid" | the entry is missing or misspelt in `web.config`. |
 | First page load is very slow, or a compile error appears once then goes | normal while IIS compiles; antivirus scanning `Temporary ASP.NET Files` can slow it. |
 | HTTP 401.2 | both Windows and Anonymous authentication are off. Enable Windows Authentication. |
@@ -179,11 +177,10 @@ Current Edge, Chrome or Firefox. Internet Explorer is not supported.
 ## Updating the site
 
 1. Back up the database and the current site folder.
-2. Copy the new `web` folder contents over the old ones, but keep the server's own
-   `CCCConString` in `web.config` (merge the file if the new version changed other settings) and
-   leave `bin` as it is.
+2. Publish the new build and copy it over the old files, but keep the server's own
+   `CCCConString` in `web.config` (merge the file if the new version changed other settings).
 3. Run any new database scripts (all are safe to run again).
-4. Browse to the site once so IIS recompiles. Browsers pick up the new files on the next visit
+4. Browse to the site once (the first request is slow while IIS compiles the page markup). Browsers pick up the new files on the next visit
    (the site sends `Cache-Control: no-cache`).
 
 **Rollback**: put the old site folder back (and, if a script changed the database, restore the

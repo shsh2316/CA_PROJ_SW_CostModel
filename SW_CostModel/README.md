@@ -19,12 +19,12 @@ docs/
   DEPLOYMENT_IIS.md                        step-by-step IIS and SQL Server setup
   PROJECT_SHEET.md                         the one-sheet project template: columns, allowed values, loading
   AUDIT.md                                 audit findings and what was changed
-web/                                       copy the CONTENTS of this folder to the IIS site
+web/                                       the site source: build and publish it from Visual Studio (see docs/DEPLOYMENT_IIS.md)
   project_registry.aspx(.cs), project_report.aspx(.cs)  the estimator page and the report page
   web.config                               IIS settings
   web.config                               also holds the database connection, CCCConString
   api/estimator.ashx                       JSON API used by the page
-  App_Code/                                API code, Db.cs and dbClassSql (all database access), compiled by IIS on first use
+  App_Code/                                API code, Db.cs and dbClassSql (all database access)
     ApiException.cs, Db.cs, Json.cs, CurrentUser.cs, MasterRepository.cs, ProjectRepository.cs
   assets/css/estimator.css                 page styles
   assets/css/fonts.css                     local font definitions

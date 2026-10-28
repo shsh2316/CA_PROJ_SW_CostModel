@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" CodeFile="project_report.aspx.cs" Inherits="ProjectReportPage" EnableViewState="false" EnableSessionState="false" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="project_report.aspx.cs" Inherits="ProjectReportPage" EnableViewState="false" EnableSessionState="false" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>

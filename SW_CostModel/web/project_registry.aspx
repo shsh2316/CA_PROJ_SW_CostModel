@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" CodeFile="project_registry.aspx.cs" Inherits="ProjectRegistryPage" EnableViewState="false" EnableSessionState="false" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="project_registry.aspx.cs" Inherits="ProjectRegistryPage" EnableViewState="false" EnableSessionState="false" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
