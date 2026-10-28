@@ -111,7 +111,20 @@ function noteOf(p) {
 }
 
 /* ---------- SQL text ---------- */
-const q = (s) => "N'" + String(s == null ? '' : s).replace(/\u0000/g, '').replace(/'/g, "''") + "'";
+/* The script is plain ASCII (no BOM, nothing for an editor to mis-read): a character outside ASCII becomes NCHAR(code). */
+const q = (s) => {
+  const t = String(s == null ? '' : s).replace(/\u0000/g, '').replace(/'/g, "''");
+  const parts = [];
+  let cur = '';
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charCodeAt(i);
+    if (c < 128) cur += t[i];
+    else { if (cur) parts.push("N'" + cur + "'"); cur = ''; parts.push('NCHAR(' + c + ')'); }
+  }
+  if (cur || !parts.length) parts.push("N'" + cur + "'");
+  return parts.join(' + ');
+};
+const ascii = (s) => String(s).replace(/[^\x00-\x7f]/g, '?');   // for the comment lines
 const qn = (s) => (s == null || s === '' ? 'NULL' : q(s));
 const num = (n) => String(Math.round(n * 100) / 100);
 
@@ -215,6 +228,12 @@ const num = (n) => String(Math.round(n * 100) / 100);
   L.push('');
   L.push('USE ' + DB_NAME + ';');
   L.push('GO');
+  L.push("IF DB_NAME() <> N'" + DB_NAME + "'");
+  L.push('BEGIN');
+  L.push("    RAISERROR('Not connected to " + DB_NAME + ": nothing was imported.', 16, 1);");
+  L.push('    SET NOEXEC ON;   -- skip the rest of the script');
+  L.push('END');
+  L.push('GO');
   L.push('SET NOCOUNT ON;');
   L.push('SET XACT_ABORT ON;');
   L.push('');
@@ -226,7 +245,7 @@ const num = (n) => String(Math.round(n * 100) / 100);
   L.push('');
   entries.forEach((e, i) => {
     const f = e.fig;
-    L.push('-- ' + (i + 1) + '/' + entries.length + '  #' + e.sr + '  ' + e.name.replace(/[\r\n]+/g, ' ') + '  (' + e.basis + ', ' + e.days + ' days, ' + e.people + ' x ' + e.level + ')' + (e.warn.length ? '  !! ' + e.warn.join('; ') : ''));
+    L.push('-- ' + (i + 1) + '/' + entries.length + '  #' + e.sr + '  ' + ascii(e.name.replace(/[\r\n]+/g, ' ')) + '  (' + e.basis + ', ' + e.days + ' days, ' + e.people + ' x ' + e.level + ')' + (e.warn.length ? '  !! ' + ascii(e.warn.join('; ')) : ''));
     L.push('SET @Id = ' + q(e.entryKey + '_') + ' + @IdSuffix;');
     L.push('IF NOT EXISTS (SELECT 1 FROM dbo.SwProjectRegister WHERE RegisterId = @Id)');
     L.push('BEGIN');
@@ -244,15 +263,16 @@ const num = (n) => String(Math.round(n * 100) / 100);
     L.push('');
   });
   L.push('COMMIT TRANSACTION;');
-  L.push("PRINT CONCAT('Added ', @Added, ' of ", entries.length + " projects (the rest already existed).');");
+  L.push("PRINT CONCAT('Added ', @Added, ' of " + entries.length + " projects (the rest already existed).');");
   L.push('');
   L.push('-- Check: expected for a first run on an empty register: ' + entries.length + ' verified entries');
   L.push("-- value (Central Automation) " + Math.round(sum('value')) + ", benchmark " + Math.round(sum('valueB')) + ", person-days " + Math.round(sum('personDays') * 10) / 10);
   L.push("SELECT Workflow, COUNT(*) AS Entries, SUM(ValueINR) AS ValueINR, SUM(BenchmarkValueINR) AS BenchmarkValueINR, SUM(PersonDays) AS PersonDays");
   L.push("FROM dbo.SwProjectRegister WHERE SubmittedBy = @ImportUser GROUP BY Workflow;");
   L.push('GO');
+  L.push('SET NOEXEC OFF;');
   L.push('');
-  fs.writeFileSync(outPath, '﻿' + L.join('\r\n'), 'utf8');
+  fs.writeFileSync(outPath, L.join('\r\n'), 'ascii');   // ASCII only: no BOM
 
   /* ---------- summary ---------- */
   const by = (f) => entries.reduce((m, e) => { m[f(e)] = (m[f(e)] || 0) + 1; return m; }, {});
