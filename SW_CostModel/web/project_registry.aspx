@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/estimator.css">
 </head>
-<body data-signed-in="<%: SignedInFlag %>" data-user="<%: UserName %>" data-admin="<%: AdminFlag %>">
+<body data-login-url="<%: ResolveUrl("~/Default.aspx") %>" data-signed-in="<%: SignedInFlag %>" data-user="<%: UserName %>" data-admin="<%: AdminFlag %>">
 <div class="wrap">
   <header class="top">
     <h1>Central Automation: estimate and quotation</h1>
@@ -22,6 +22,7 @@
     <button type="button" data-page="xl">Excel upload</button>
     <button type="button" data-page="print">Print</button>
     <a href="project_report.aspx">Report</a>
+    <a href="<%= ResolveUrl("~/Default.aspx") %>?logout=1">Sign out</a>
   </nav>
 
   <section class="page" id="p-master">

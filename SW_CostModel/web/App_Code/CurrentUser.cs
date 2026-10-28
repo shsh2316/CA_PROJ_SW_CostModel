@@ -4,7 +4,7 @@ using System.Security.Principal;
 using System.Web;
 
 /// <summary>
-/// The person calling the API: the shared login checked by BasicAuthModule (or, if the site is changed to use
+/// The person calling the API: the shared login checked by LoginModule (or, if the site is changed to use
 /// Windows authentication, the Windows user).
 /// Each person is added to dbo.SwAppUser on first use; set IsAdmin = 1 there to let
 /// them see costs, change masters, upload Excel workbooks and verify entries.
@@ -44,11 +44,11 @@ public sealed class CurrentUser
             u.DisplayName = Db.Str(r, "DisplayName") ?? u.DisplayName;
             u.IsAdmin = r["IsAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsAdmin"]);
         }
-        if (p.Identity.AuthenticationType == BasicAuthModule.AuthType)
+        if (p.Identity.AuthenticationType == LoginModule.AuthType)
         {
             // The one shared login is the admin: there are no other people or roles.
             u.IsAdmin = true;
-            u.CanSelfVerify = BasicAuthModule.AllowSelfVerification;
+            u.CanSelfVerify = LoginModule.AllowSelfVerification;
         }
         return u;
     }

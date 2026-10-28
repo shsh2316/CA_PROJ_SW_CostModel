@@ -1,13 +1,12 @@
 /* ==================================================================
    Central Automation - Estimate and Quotation
-   06. First admins and a check that everything is in place
+   06. Check that everything is in place
 
    Run after 01, 02 and 03. Safe to run again.
-   1. The site has one shared login, CA_Admin, which is always treated as an
-      admin. This script registers it in dbo.SwAppUser (the site does this on
-      first use anyway). Add more rows only if the site is changed to use
-      Windows sign-in.
-   2. Run the whole script. The last result sets are the checks.
+   The site has one shared password and everyone who signs in is an admin, so there
+   is nobody to set up here. Run this after the first sign-in: it lists the users
+   the site has registered, and checks the masters, the pool account's rights and
+   the register.
    ================================================================== */
 
 USE CentralAutomationEstimator;   -- change if you used another name in script 01
@@ -15,20 +14,9 @@ GO
 SET NOCOUNT ON;
 GO
 
-/* 1. Admins. UserLogin is DOMAIN\username exactly as Windows reports it. */
-DECLARE @Admins TABLE (UserLogin NVARCHAR(200) NOT NULL, DisplayName NVARCHAR(200) NOT NULL);
-INSERT @Admins (UserLogin, DisplayName) VALUES
-    (N'CA_Admin', N'CA Admin');
+/* Checks */
 
-MERGE dbo.SwAppUser AS t
-USING @Admins AS s ON t.UserLogin = s.UserLogin
-WHEN MATCHED THEN UPDATE SET IsAdmin = 1, DisplayName = s.DisplayName
-WHEN NOT MATCHED THEN INSERT (UserLogin, DisplayName, IsAdmin) VALUES (s.UserLogin, s.DisplayName, 1);
-GO
-
-/* 2. Checks */
-
--- a. Who is an admin (expect CA_Admin)
+-- a. Users the site has registered (one row per name typed at the login page)
 SELECT UserLogin, DisplayName, IsAdmin, FirstSeenAt, LastSeenAt FROM dbo.SwAppUser ORDER BY IsAdmin DESC, UserLogin;
 
 -- b. Masters are loaded (expect 5 levels, 8 value categories, rows in the others)

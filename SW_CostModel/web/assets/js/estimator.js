@@ -982,6 +982,8 @@ function api(action,body){
   var o={method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'X-Requested-With':'XMLHttpRequest'}};
   if(body){o.headers['Content-Type']='application/json';o.body=JSON.stringify(body);}
   return fetch(API+'?action='+encodeURIComponent(action),o).then(function(r){
+    var login=document.body.dataset.loginUrl;
+    if(r.status===401&&login){location.href=login+'?returnUrl='+encodeURIComponent(location.pathname+location.search);return new Promise(function(){});}
     return r.json().catch(function(){return {};}).then(function(j){
       if(!r.ok||j.error){var e=new Error((j.error&&j.error.message)||('The server answered '+r.status+'.'));e.code=(j.error&&j.error.code)||('http_'+r.status);throw e;}
       return j;

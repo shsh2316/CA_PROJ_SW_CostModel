@@ -215,6 +215,13 @@ ol.log li{margin:3px 0}
   .paper tr,.q-sign,.q-spec div{break-inside:avoid}
   .paper h3{break-after:avoid}
 }
+/* number boxes: room for large rupee amounts, no spin arrows eating the width */
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.inp input[type=number]{min-width:11ch;padding-right:4px}
+.pair{grid-template-columns:repeat(2,minmax(13em,1fr))}
+.f.dual{grid-column:span 2}
+@media (max-width:640px){.f.dual{grid-column:auto}.pair{grid-template-columns:1fr}}
 /* report page */
 .pnav a{font:inherit;font-weight:500;color:var(--muted);text-decoration:none;border-bottom:4px solid transparent;margin-bottom:-2px;padding:10px 16px;min-height:46px;display:inline-flex;align-items:center;white-space:nowrap}
 .pnav a:hover{color:var(--ink)}
