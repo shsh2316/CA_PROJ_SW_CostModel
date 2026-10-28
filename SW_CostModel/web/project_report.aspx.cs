@@ -333,7 +333,8 @@ public partial class ProjectReportPage : Page
         Response.Clear();
         Response.ContentType = "text/csv";
         Response.Charset = "utf-8";
-        Response.ContentEncoding = new UTF8Encoding(true);   // with BOM, so Excel reads it as UTF-8
+        Response.ContentEncoding = new UTF8Encoding(false);
+        Response.BinaryWrite(Encoding.UTF8.GetPreamble());   // the BOM, written explicitly (Response.Write does not add one), so Excel reads the file as UTF-8
         Response.AddHeader("Content-Disposition", "attachment; filename=\"" + baseName + "-" + DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".csv\"");
         Response.Write(sb.ToString());
         Response.Flush();

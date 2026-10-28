@@ -2,44 +2,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Central Automation: Sign in</title>
-<link rel="icon" href="data:,">
-<link rel="stylesheet" href="assets/css/fonts.css">
-<link rel="stylesheet" href="assets/css/login.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central Automation: Sign in</title>
+    <link rel="icon" href="data:,">
+    <%-- Libraries: Content, Scripts and Standards sit in the site root, copied from the other portal. Everything is served from this server. --%>
+    <link href="<%= ResolveUrl("~/Content/bootstrap.min.css") %>" rel="stylesheet">
+    <link href="<%= ResolveUrl("~/Content/font-awesome.min.css") %>" rel="stylesheet">
+    <link href="<%= ResolveUrl("~/SW_CostModel/web/assets/css/fonts.css") %>" rel="stylesheet">
+    <link href="<%= ResolveUrl("~/SW_CostModel/web/assets/css/login.css") %>" rel="stylesheet">
 </head>
 <body>
-    <div class="tilted-div"></div>
+    <div class="stage" aria-hidden="true"><div class="tilted-div"></div></div>
     <div class="ele"><%= LogoHtml %></div>
 
-    <form method="post" autocomplete="off">
-        <div class="content">
-            <div class="card">
-                <div class="banner">Central Automation<br>Estimate and Quotation</div>
+    <main class="login-wrap">
+        <form method="post" autocomplete="off" class="content" id="divContent">
+            <div class="card h-100 border-0" id="Login_box">
+                <div class="card-body">
+                    <div class="alert text-center text-white bg-gradient bg-dark lead p-2">
+                        Central Automation<br>Estimate and Quotation
+                    </div>
 
-                <div class="text-start">
-                    <label class="form-label" for="txtUser"><span class="ico">&#9786;</span> Username</label>
-                    <input type="text" id="txtUser" name="user" class="form-control" placeholder="Your name" maxlength="100" autocomplete="username" value="<%: UserValue %>">
-                </div>
+                    <div class="text-start mb-3">
+                        <label class="form-label text-secondary fw-bolder" for="txtUser"><span class="fa fa-user"></span> Username</label>
+                        <input type="text" name="user" id="txtUser" class="form-control" placeholder="Your name" maxlength="100" autocomplete="username" value="<%: UserValue %>">
+                    </div>
 
-                <div class="text-start">
-                    <label class="form-label" for="txtpassword"><span class="ico">&#9919;</span> Password</label>
-                    <div class="pw">
-                        <input type="password" id="txtpassword" name="password" class="form-control" placeholder="Enter your password" autocomplete="current-password">
-                        <button type="button" id="btn_ShowPassword" class="eye" aria-label="Show password">Show</button>
+                    <div class="text-start mb-3">
+                        <label class="form-label text-secondary fw-bolder" for="txtpassword"><b class="fa fa-lock"></b> Password</label>
+                        <div class="position-relative">
+                            <input type="password" name="password" id="txtpassword" class="form-control" placeholder="Enter your password" autocomplete="current-password" style="padding-right: 44px;">
+                            <button type="button" id="btn_ShowPassword" class="btn position-absolute eye" aria-label="Show password"><span class="fa fa-eye"></span></button>
+                        </div>
+                    </div>
+
+                    <div class="text-center msg" role="alert"><label class="small text-danger fw-bold font-monospace"><%= MessageHtml %></label></div>
+
+                    <div class="text-center">
+                        <button type="submit" id="cmdLogin" class="btn text-white btn-danger">Login into the portal</button>
                     </div>
                 </div>
-
-                <div class="msg" role="alert"><%= MessageHtml %></div>
-
-                <div class="text-center">
-                    <button type="submit" id="cmdLogin" class="btn-login">Login into the portal</button>
-                </div>
             </div>
-            <div class="text-center small">Powered by Central Automation, AM/NS India</div>
-        </div>
-    </form>
-    <script src="assets/js/login.js"></script>
+            <div class="text-center">
+                <label class="small text-black">Powered by Central Automation, AM/NS India</label>
+            </div>
+        </form>
+    </main>
+    <script src="<%= ResolveUrl("~/SW_CostModel/web/assets/js/login.js") %>"></script>
 </body>
 </html>

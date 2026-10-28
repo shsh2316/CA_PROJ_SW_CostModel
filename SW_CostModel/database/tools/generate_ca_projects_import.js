@@ -104,7 +104,7 @@ function toProjects(rows) {
 
 /* Note (max 500): [Sr | location | KPI | type] short description. Considerations. Key benefit. */
 function noteOf(p) {
-  const head = '[#' + p.sr + ' | ' + [p.loc, p.kpi, p.work].filter(Boolean).join(' | ') + ']';
+  const head = '[Estimated from the project list, #' + p.sr + ' | ' + [p.loc, p.kpi, p.work].filter(Boolean).join(' | ') + ']';
   const parts = [p.failed ? 'FAILED.' : '', head, p.note.desc, p.note.cons ? 'Considerations: ' + p.note.cons : '', p.note.benefit ? 'Key benefit: ' + p.note.benefit : ''].filter(Boolean);
   const s = parts.join(' ');
   return s.length > 500 ? s.slice(0, 497).trimEnd() + '...' : s;
@@ -139,7 +139,7 @@ const num = (n) => String(Math.round(n * 100) / 100);
   let js = fs.readFileSync(path.join(WEB, 'assets', 'js', 'estimator.js'), 'utf8');
   const tail = js.lastIndexOf('})();');
   if (tail < 0) throw new Error('estimator.js: closing "})();" not found');
-  js = js.slice(0, tail) + 'window.__CA={newEstimate:newEstimate,calc2:calc2,figuresOf:figuresOf,savedState:savedState,slug:slug,isAdmin:isAdmin,M:M};\n' + js.slice(tail);
+  js = js.slice(0, tail) + 'window.__CA={newEstimate:newEstimate,calc2:calc2,figuresOf:figuresOf,savedState:savedState,slug:slug,isAdmin:isAdmin,M:M,offline:function(){DBSTATE=\"off\";}};\n' + js.slice(tail);
   await page.route('**/*', (route) => {
     const u = new URL(route.request().url());
     if (u.pathname === '/index.html') return route.fulfill({ contentType: 'text/html', body: html });
@@ -151,7 +151,9 @@ const num = (n) => String(Math.round(n * 100) / 100);
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });   // no API: the page works as an offline calculator
   });
   await page.goto('http://ca.local/index.html');
-  await page.waitForFunction(() => window.__CA && window.__CA.isAdmin(), null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__CA, null, { timeout: 15000 });
+  /* there is no server here: use the page as the offline calculator (it then shows costs, as figuresOf needs) */
+  await page.evaluate(() => window.__CA.offline());
 
   /* read the workbook with the page's own reader */
   const b64 = fs.readFileSync(xlsxPath).toString('base64');
@@ -224,6 +226,11 @@ const num = (n) => String(Math.round(n * 100) / 100);
   L.push('     Value       "Cal-2 (Gained)" amounts are a yearly benefit (other benefit, INR); other projects: none');
   L.push('     Dates       financial year from the Start Date (else End Date, else ' + DEFAULT_FY + ')');
   L.push('   Edit @ImportUser below if the entries should belong to someone else.');
+  L.push('');
+  L.push('   These entries are ESTIMATES (every Note starts "Estimated from the project list") but are stored as verified, so reports count them.');
+  L.push('   A verified entry cannot be edited or deleted on the page. To undo this import (the log rows go with the entries):');
+  L.push("       DELETE dbo.SwProjectRegister WHERE SubmittedBy = N'Import';");
+  L.push('   Registering one of these projects again on the page creates a second row for it (a different RegisterId); delete the imported row first.');
   L.push('   ================================================================== */');
   L.push('');
   L.push('USE ' + DB_NAME + ';');

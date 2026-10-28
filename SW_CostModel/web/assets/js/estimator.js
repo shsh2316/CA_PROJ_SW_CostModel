@@ -76,6 +76,7 @@ var $$=function(q,el){return Array.prototype.slice.call((el||document).querySele
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function merge(t,s){
   Object.keys(s).forEach(function(k){
+    if(k==='__proto__'||k==='constructor'||k==='prototype')return;   /* a saved estimate comes from other people: never touch Object.prototype */
     if(Array.isArray(s[k])){t[k]=s[k];}
     else if(s[k]&&typeof s[k]==='object'&&t[k]&&typeof t[k]==='object'&&!Array.isArray(t[k])){merge(t[k],s[k]);}
     else{t[k]=s[k];}
@@ -109,17 +110,24 @@ function fmtDT(iso){var d=new Date(iso);return isNaN(d.getTime())?'':d.toLocaleS
 function fyStart(d){d=d||new Date();return d.getMonth()>=3?d.getFullYear():d.getFullYear()-1;}
 function fyLabel(y){var t=(y+1)%100;return y+'-'+(t<10?'0':'')+t;}
 var FY_OPTS=[];for(var fy=fyStart()+1;fy>=fyStart()-6;fy--)FY_OPTS.push([fyLabel(fy),'FY '+fyLabel(fy)]);
-function slug(t){return String(t||'project').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'project';}
+/* A name with no Latin letters or digits (for example Gujarati or Hindi) has an empty slug: add a short hash of the
+   name so two different projects do not get the same register key. Names with Latin letters keep their usual key. */
+function slug(t){
+  var raw=String(t||'project'),s=raw.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
+  if(s)return s;
+  var h=5381;for(var i=0;i<raw.length;i++)h=((h*33)^raw.charCodeAt(i))>>>0;
+  return 'project-'+h.toString(36);
+}
 function uid(){return 'x'+Date.now().toString(36)+Math.floor(Math.random()*1000).toString(36);}
 function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on');},2200);}
 function words(n){
-  n=Math.round(n);if(n<=0)return 'Zero';
+  n=Math.round(n);if(!isFinite(n)||n<=0)return 'Zero';
   var a=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
   var b=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
   function two(x){return x<20?a[x]:b[Math.floor(x/10)]+(x%10?' '+a[x%10]:'');}
   function three(x){var h=Math.floor(x/100),r=x%100;return (h?a[h]+' Hundred'+(r?' ':''):'')+(r?two(r):'');}
   var out=[],cr=Math.floor(n/1e7);n%=1e7;var lk=Math.floor(n/1e5);n%=1e5;var th=Math.floor(n/1e3);n%=1e3;
-  if(cr)out.push(three(cr)+' Crore');if(lk)out.push(two(lk)+' Lakh');if(th)out.push(two(th)+' Thousand');if(n)out.push(three(n));
+  if(cr)out.push((cr<1000?three(cr):words(cr))+' Crore');if(lk)out.push(two(lk)+' Lakh');if(th)out.push(two(th)+' Thousand');if(n)out.push(three(n));
   return out.join(' ');
 }
 
@@ -194,12 +202,34 @@ function hydrate(str){
   if(raw.infra&&raw.infra.gpuPreset&&!raw.infra.gpuId)n.infra.gpuId=raw.infra.gpuPreset==='none'?'':raw.infra.gpuPreset;
   if(!raw.need&&(+n.infra.gpuCount)>0&&n.infra.gpuId)n.need.gpu=true;
   if(!raw.model)n.model=isYearly(Object.assign({},n,{model:''}))?'yearly':'once';
+  sane(n);
   n.need.amc=(n.model==='yearly');
   ensureQuote(n);
   return n;
 }
+/* A saved estimate may carry any value: keep every choice to what the page offers and every number finite and in range,
+   so nothing odd can turn a total into NaN or make the page hang. */
+function inSet(v,list,d){return list.indexOf(v)>=0?v:d;}
+function clampN(v,lo,hi){v=+v;if(!isFinite(v))return lo;return Math.min(hi,Math.max(lo,v));}
+function sane(n){
+  n.type=inSet(n.type,Object.keys(TYPE_NAME),'web');
+  n.model=inSet(n.model,['once','yearly'],'yearly');
+  n.reg.kind=inSet(n.reg.kind,Object.keys(KIND),'new');
+  n.reg.status=inSet(n.reg.status,Object.keys(STAT),'completed');
+  var i=n.infra;
+  i.mode=inSet(i.mode,['onprem','cloud'],'onprem');
+  i.env=inSet(i.env,Object.keys(ENV_N),'prod');
+  i.storageType=inSet(i.storageType,['hdd','ssd','nvme'],'ssd');
+  i.redundancy=inSet(i.redundancy,Object.keys(RAID_NAME),'none');
+  ['cpu','ram','storageTb','servers','otherAnnual','gpuCount','gpuPrice','gpuPriceB','gpuMonthly','gpuMonthlyB'].forEach(function(k){i[k]=clampN(i[k],0,1e12);});
+  n.days=clampN(n.days,0,100000);n.users=clampN(n.users,0,1e7);n.complexity=clampN(n.complexity,0.1,10);
+  n.amc.years=clampN(n.amc.years,1,50);n.amc.warranty=clampN(n.amc.warranty,0,12);
+  n.team.forEach(function(r){r.people=clampN(r.people,0,100000);r.alloc=clampN(r.alloc,0,100);if(r.days!=='')r.days=clampN(r.days,0,100000);});
+  n.other.forEach(function(o){o.cost=clampN(o.cost,0,1e12);o.qty=clampN(o.qty,0,1e9);if(o.costB!=null)o.costB=clampN(o.costB,0,1e12);});
+  n.value.items.forEach(function(v){v.qty=clampN(v.qty,0,1e12);v.rate=clampN(v.rate,0,1e12);});
+}
 var S=newEstimate();
-try{var sv=localStorage.getItem(DSTORE);if(sv){S=hydrate(sv);S.dirty=true;}}catch(e){}
+try{var sv=localStorage.getItem(DSTORE);if(sv)S=hydrate(sv);}catch(e){}   /* keeps the saved "edited" flag: an untouched draft still follows master changes */
 function saveDraft(){try{localStorage.setItem(DSTORE,JSON.stringify(S));}catch(e){}}
 
 /* ================= calculation ================= */
@@ -308,10 +338,12 @@ function valB(d){return d.valueB!=null?+d.valueB:(+d.value||0);}
 
 /* ================= field engine ================= */
 var FIELDS={};
-function F(label,path,type,o){var f=Object.assign({label:label,path:path,type:type},o||{});FIELDS[path]=f;return f;}
+/* A field is found by its id (default: its path). Two fields on different steps may edit the same value: give the second one its own id,
+   or it replaces the first one's settings (visibility, units) and the first disappears. */
+function F(label,path,type,o){var f=Object.assign({label:label,path:path,type:type},o||{});f.id=f.id||path;FIELDS[f.id]=f;return f;}
 function opts(f){return typeof f.options==='function'?f.options():f.options;}
 function fieldHTML(f){
-  var h='<label class="f'+(f.wide?' wide':'')+'" data-fp="'+f.path+'"'+(f.adm?' data-adm="1"':'')+'>';
+  var h='<label class="f'+(f.wide?' wide':'')+'" data-fp="'+f.id+'"'+(f.adm?' data-adm="1"':'')+'>';
   if(f.type==='check'){
     h+='<span class="chk"><input type="checkbox" data-path="'+f.path+'"><span>'+esc(f.label)+(f.hint?'<small>'+esc(f.hint)+'</small>':'')+'</span></span></label>';
     return h;
@@ -392,8 +424,8 @@ var P_LIC=[
   F('OS licence per server (benchmark)','lic.osPerServerB','number',{adm:true,unit:'₹',show:custOs}),
   F('Client access licence per user (CA)','lic.calPerUser','number',{adm:true,unit:'₹ / user'}),
   F('Client access licence per user (benchmark)','lic.calPerUserB','number',{adm:true,unit:'₹ / user'}),
-  F('Servers / VMs','infra.servers','number',{unit:'per environment',show:function(s){return s.need.hw===false;}}),
-  F('CPU cores (for database licence)','infra.cpu','number',{unit:'cores',show:function(s){return s.need.hw===false;}})
+  F('Servers / VMs','infra.servers','number',{id:'lic.servers',unit:'per environment',show:function(s){return s.need.hw===false;}}),
+  F('CPU cores (for database licence)','infra.cpu','number',{id:'lic.cpu',unit:'cores',show:function(s){return s.need.hw===false;}})
 ];
 var P_AMC=[
   F('AMC basis','amc.mode','select',{options:[['percent','% of development cost'],['team','Dedicated support people']]}),
@@ -420,8 +452,8 @@ var P_ADV=[
   F('Benchmark effort factor','benchEffort','number',{unit:'× person-days',hint:'1 = same effort as the team entered'}),
   F('Add GST to all costs','fin.gstOn','check'),
   F('GST rate','fin.gst','number',{unit:'%',show:function(s){return s.fin.gstOn;}}),
-  F('Yearly cost escalation','amc.esc','number',{unit:'% / year',show:function(s){return !isYearly(s);}}),
-  F('Years of ownership','amc.years','number',{unit:'years',show:function(s){return !isYearly(s);}})
+  F('Yearly cost escalation','amc.esc','number',{id:'adv.esc',adm:true,unit:'% / year',show:function(s){return !isYearly(s);}}),
+  F('Years of ownership','amc.years','number',{id:'adv.years',unit:'years',show:function(s){return !isYearly(s);}})
 ];
 var P_SUBMIT=[
   F('Charged to user department','reg.charged','number',{adm:true,unit:'₹',hint:'0 when no charge is raised'}),
@@ -459,7 +491,7 @@ function visibleSteps(){
   a.push(['review','Review']);
   return a;
 }
-function numInput(path,label,w,extra){return '<input type="number" min="0" step="any" inputmode="decimal" data-path="'+path+'" aria-label="'+esc(label)+'" style="width:'+w+'px"'+(extra||'')+'>';}
+function numInput(path,label,w,extra){return '<input type="number" min="0" step="any" inputmode="decimal" data-path="'+path+'" aria-label="'+esc(label)+'" style="min-width:'+w+'px"'+(extra||'')+'>';}
 function teamHTML(){
   var adm=isAdmin();
   var rows=S.team.map(function(r,i){
@@ -502,7 +534,7 @@ function valueHTML(){
     '<td><select data-path="'+p+'cat" aria-label="Benefit">'+cats+'</select></td>'+
     '<td><input type="text" data-path="'+p+'desc" aria-label="How the value is created"></td>'+
     '<td>'+numInput(p+'qty','Quantity',90)+'</td>'+
-    '<td><input type="text" data-path="'+p+'unit" aria-label="Unit" style="width:80px"></td>'+
+    '<td><input type="text" data-path="'+p+'unit" aria-label="Unit" style="min-width:80px"></td>'+
     '<td>'+numInput(p+'rate','Value per unit, rupees',100)+'</td>'+
     '<td><select data-path="'+p+'freq" aria-label="How often">'+Object.keys(FREQ).map(function(k){return '<option value="'+k+'">'+FREQ[k]+'</option>';}).join('')+'</select></td>'+
     '<td class="num"><output data-valamt="'+i+'"></output></td>'+
@@ -632,7 +664,7 @@ function resultsHTML(st,R){
   }else m.push('<b>Licences and other items</b> are not part of this estimate.');
   if(R.nAmc)m.push('<b>AMC</b> = '+(s.amc.mode==='percent'?R.pct+'% (CA) or '+B.pct+'% (benchmark) of development cost':s.amc.people+' person × '+s.amc.daysPerMonth+' days × 12 months × '+s.amc.level+' rate')+': CA '+inr(R.amcBase)+', benchmark '+inr(B.amcBase)+' per year. Yearly deployment = '+s.amc.deployDays+' days × '+(s.amc.deployLevel||'Mid')+' rate: CA '+inr(R.depCost)+', benchmark '+inr(B.depCost)+'. Change requests = '+s.amc.crDays+' days × '+s.amc.crLevel+' rate: CA '+inr(R.crCost)+', benchmark '+inr(B.crCost)+'. Year 1 AMC is reduced by '+R.warr+' free warranty month'+(R.warr===1?'':'s')+'.');
   m.push('<b>Running cost each year</b> = hosting + yearly items + licence support + AMC + deployment + change requests, grown by '+(R.esc*100).toFixed(1)+'% per year.');
-  if(R.gstRate>0)m.push('<b>GST</b> '+(R.gstRate*100)+'% is added to every one-time and yearly cost.');
+  if(R.gstRate>0)m.push('<b>GST</b> '+(Math.round(R.gstRate*10000)/100)+'% is added to every one-time and yearly cost.');
   m.push('<b>Total cost of ownership</b> = one-time + running for '+R.H+' year'+(R.H>1?'s':'')+'. Central Automation '+inr(R.oneTotal)+' + '+inr(R.recSum)+' = '+inr(R.tco)+'. Benchmark '+inr(B.oneTotal)+' + '+inr(B.recSum)+' = '+inr(B.tco)+'.');
   m.push('<b>Rates used</b> are copied into this estimate when it is created, from the Manpower, Hardware, Software and Licence masters.');
   if(R.val.rows.length)m.push('<b>Value creation</b> = Σ quantity × ₹ per unit. Over '+R.H+' year'+(R.H>1?'s':'')+' = one-time + yearly × '+R.H+' = '+inr(R.val.total)+'. Return on cost = (value − Central Automation cost of ownership) ÷ that cost. Payback = (one-time cost − one-time value) ÷ (yearly value − yearly running cost).');
@@ -811,7 +843,10 @@ function onChange(e){
   else if(el.tagName==='SELECT'){v=(f&&f.num)?parseFloat(el.value):el.value;}
   else if(el.type==='number'){
     if(el.value==='')v=el.dataset.blank?'':0;
-    else{v=parseFloat(el.value);if(isNaN(v)||v<0)v=0;}
+    else{v=parseFloat(el.value);if(!isFinite(v)||v<0)v=0;}
+    if(/\.alloc$/.test(p))v=Math.min(100,v);            /* time on project: 0 to 100 % */
+    else if(p==='amc.years')v=Math.min(50,Math.max(1,v||1)); /* years of ownership: 1 to 50 */
+    else v=Math.min(v,1e12);
   }else v=el.value;
   put(rf.o,rf.p,v);
   if(f&&f.after&&f.type==='select')f.after(rf.o,v);
@@ -882,8 +917,8 @@ function mlist(path,cols,addLabel){
     return '<tr>'+cols.map(function(c){
       var p='m.'+path+'.'+i+'.'+c.k;
       if(c.type==='select')return '<td><select data-path="'+p+'" aria-label="'+esc(c.label)+'">'+c.opts.map(function(o){return '<option value="'+o[0]+'">'+esc(o[1])+'</option>';}).join('')+'</select></td>';
-      if(c.type==='number')return '<td><input type="number" min="0" step="any" inputmode="decimal" data-path="'+p+'" aria-label="'+esc(c.label)+'" style="width:'+(c.w||110)+'px"></td>';
-      return '<td><input type="text" data-path="'+p+'" aria-label="'+esc(c.label)+'"'+(c.w?' style="width:'+c.w+'px"':'')+'></td>';
+      if(c.type==='number')return '<td><input type="number" min="0" step="any" inputmode="decimal" data-path="'+p+'" aria-label="'+esc(c.label)+'" style="min-width:'+(c.w||110)+'px"></td>';
+      return '<td><input type="text" data-path="'+p+'" aria-label="'+esc(c.label)+'"'+(c.w?' style="min-width:'+c.w+'px"':'')+'></td>';
     }).join('')+'<td><button type="button" class="x" data-mdel="'+path+':'+i+'" aria-label="Remove">×</button></td></tr>';
   }).join('');
   return '<div class="tw"><table><thead><tr>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
@@ -984,13 +1019,17 @@ function api(action,body){
   return fetch(API+'?action='+encodeURIComponent(action),o).then(function(r){
     var login=document.body.dataset.loginUrl;
     if(r.status===401&&login){location.href=login+'?returnUrl='+encodeURIComponent(location.pathname+location.search);return new Promise(function(){});}
-    return r.json().catch(function(){return {};}).then(function(j){
+    return r.json().catch(function(){return null;}).then(function(j){
+      /* a page that is not JSON (for example a sign-in page sent with status 200) is an error, not an empty answer */
+      if(j===null&&r.ok){var u=new Error('The server sent an unexpected reply. Reload the page or sign in again.');u.code='bad_reply';throw u;}
+      j=j||{};
       if(!r.ok||j.error){var e=new Error((j.error&&j.error.message)||('The server answered '+r.status+'.'));e.code=(j.error&&j.error.code)||('http_'+r.status);throw e;}
       return j;
     });
   });
 }
-/* Admins see costs. While the page is still connecting nobody counts as admin, so costs never flash up. */
+/* Admins see costs. While the page is still connecting, or when the server cannot be reached ('err'), nobody counts as admin.
+   Only a page opened as a file ('off': a calculator with no server) shows everything, because there is nothing to protect. */
 function isAdmin(){return DBSTATE==='off'||(DBSTATE==='ready'&&ISADMIN);}
 function isMe(id){return !!ME.id&&!!id&&String(id).toLowerCase()===String(ME.id).toLowerCase();}
 function wfOf(d){return d.wf||'pending';}
@@ -1011,29 +1050,43 @@ function applyRegister(reg){
   renderAppr();fillPvSel();updateBanner();
   if(PAGE==='print')paintPrint();
 }
+/* Each request for server data gets a number: a slower, older answer that arrives after a newer one is ignored. */
+var dataSeq=0,pollStarted=false;
 function loadRegister(){
   if(DBSTATE!=='ready')return;
-  api('projects').then(applyRegister,function(e){toast(e.message||'Could not refresh the register');});
+  var my=++dataSeq;
+  api('projects').then(function(r){if(my===dataSeq)applyRegister(r);},function(e){toast(e.message||'Could not refresh the register');});
 }
 function refreshAll(){
   if(DBSTATE!=='ready'||Date.now()-lastSync<15000)return;
   lastSync=Date.now();
+  var my=++dataSeq;
   api('init').then(function(r){
+    if(my!==dataSeq)return;
     var changed=applyMe(r.me);applyMasters(r.masters);applyRegister(r.register);
     if(changed)roleChanged();else if(PAGE==='master'&&!MDIRTY[MTAB])renderMaster();
   },function(){});
 }
 function initDb(){
   if(location.protocol==='file:'){DBSTATE='off';DBERR='the page was opened as a file, not from the web server.';onMasterChange(true);roleChanged();return;}
+  var my=++dataSeq;
   api('init').then(function(r){
+    if(my!==dataSeq)return;
     DBSTATE='ready';lastSync=Date.now();
     applyMe(r.me);applyMasters(r.masters);applyRegister(r.register);
     roleChanged();
-    setInterval(function(){if(!document.hidden)loadRegister();},60000);
-    document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshAll();});
+    if(!pollStarted){
+      pollStarted=true;
+      setInterval(function(){if(!document.hidden)loadRegister();},60000);
+      document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshAll();});
+    }
   }).catch(function(e){
-    DBSTATE='off';DBERR=(e&&e.message)||'the page cannot reach the server.';
-    onMasterChange(true);roleChanged();
+    /* The server did not answer properly (or its answer could not be used): no admin screens, and try again in 30 seconds */
+    DBSTATE='err';DBERR=(e&&e.message)||'the page cannot reach the server.';
+    ME={id:null,name:'',selfVerify:false};ISADMIN=false;
+    onMasterChange(true);roleChanged();renderAppr();
+    toast('The register is not available: '+DBERR);
+    setTimeout(initDb,30000);
   });
 }
 function updateBanner(){
@@ -1061,41 +1114,50 @@ function submitEntry(st,R,editId,reply){
     department:st.q.to||'',note:r.note||'',state:savedState(st)},figuresOf(st,R));
   return api('submitProject',{id:editId||'',entry:entry,reply:String(reply||'')});
 }
+var BUSY=false;   /* one save, verify or send-back at a time: a double click must not send it twice */
 async function saveReg(){
+  if(BUSY)return;
   if(DBSTATE!=='ready'){toast('The register is not available: '+DBERR);return;}
   if(!ME.id){toast('Sign in to submit entries');return;}
   if(!String(S.name||'').trim()){toast('Enter the project name in Basics');STEP='basics';update();return;}
+  BUSY=true;
   try{
     await submitEntry(S,LAST,editingId,S.reg.reply);
     editingId=null;editingWf='';S.reg.reply='';
     update();toast('Submitted for verification');loadRegister();
   }catch(e){toast(e.message||'Could not submit');}
+  finally{BUSY=false;}
 }
 async function verifyReg(id){
   var d=findReg(id);
-  if(DBSTATE!=='ready'||!d)return;
+  if(BUSY||DBSTATE!=='ready'||!d)return;
   if(!isAdmin()){toast('Only admins can verify entries');return;}
   if(isMe(d.by)&&!ME.selfVerify){toast('Another admin needs to verify your entry');return;}
   var st=stateOf(d);
   if(apCharged!=='')st.reg.charged=Math.max(0,+apCharged||0);
   var R=calc2(st),costing=Object.assign(figuresOf(st,R),{state:savedState(st)});
-  var adj=Math.round(+apAdj||0),note=apNote.trim();
+  var adj=Math.max(0,Math.round(+apAdj||0)),note=apNote.trim();
   if(adj>0&&adj!==costing.value&&!note){toast('Add a comment explaining the adjusted value');return;}
+  BUSY=true;
   try{
     await api('verifyProject',{id:id,updated:d.updated||'',costing:costing,adjustedValue:adj,comment:note});
     apAdj='';apNote='';apCharged='';toast('Verified. Entry is final.');
   }catch(e){toast(e.message||'Could not verify');}
+  finally{BUSY=false;}
   loadRegister();
 }
 async function sendBack(id){
   var d=findReg(id),text=apNote.trim();
-  if(DBSTATE!=='ready'||!d)return;
+  if(BUSY||DBSTATE!=='ready'||!d)return;
+  if(!isAdmin()){toast('Only admins can send entries back');return;}
   if(!text){toast('Say what information is needed');return;}
   if(isMe(d.by)&&!ME.selfVerify){toast('Another admin needs to review your entry');return;}
+  BUSY=true;
   try{
     await api('sendBack',{id:id,updated:d.updated||'',comment:text});
     apAdj='';apNote='';apCharged='';toast('Sent back to the submitter');
   }catch(e){toast(e.message||'Could not send back');}
+  finally{BUSY=false;}
   loadRegister();
 }
 function editEntry(id){
@@ -1115,14 +1177,15 @@ function copyEntry(id){
   buildWizard();STEP='basics';gotoPage('reg');
   toast('Loaded as a copy. Change the year or record type, then submit.');
 }
-function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+/* Text that starts with = + - @ (or a tab / return) would be run as a formula by Excel: a leading ' makes it plain text. Plain numbers are left alone. */
+function csvCell(v){var t=String(v==null?'':v);if(/^[=+\-@\t\r]/.test(t)&&!/^-?\d+(\.\d+)?$/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"';}
 function download(blob,name){
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);
 }
 function exportReg(){
-  var rows=regDocs.filter(function(d){return wfOf(d)==='verified';}).sort(function(a,b){return String(b.fy).localeCompare(String(a.fy))||String(a.name).localeCompare(String(b.name));});
+  var rows=regDocs.filter(function(d){return wfOf(d)==='verified'&&(regFY==='all'||d.fy===regFY);}).sort(function(a,b){return String(b.fy).localeCompare(String(a.fy))||String(a.name).localeCompare(String(b.name));});
   var head=['RegisterId','FinYear','Kind','DeliveryModel','Status','ProjectName','ProjectType','Department','ValueINR','BenchmarkValueINR','ChargedINR','OneTimeINR','BenchmarkOneTimeINR','YearlyRunINR','BenchmarkYearlyRunINR','PersonDays','TeamSize','ValueCreatedYearlyINR','ValueCreatedOneTimeINR','Note','SubmittedBy','VerifiedBy','VerifiedAt'];
   var lines=[head.join(',')].concat(rows.map(function(d){
     return [d._id,d.fy,d.kind,d.model||'',d.status,d.name,d.type,d.department,d.value,valB(d),d.charged,d.oneTime,d.oneTimeB!=null?d.oneTimeB:d.oneTime,d.yearly,d.yearlyB!=null?d.yearlyB:d.yearly,d.personDays,d.team,d.valueYearly,d.valueOnce,d.note,realName(d.by),realName(d.verifiedBy),d.verifiedAt].map(csvCell).join(',');
@@ -1532,6 +1595,7 @@ async function xlSubmit(list){
 /* ================= click handling ================= */
 document.addEventListener('click',function(e){
   var t=e.target;if(!t||!t.dataset)return;
+  if(t.closest){var stepBtn=t.closest('[data-step]');if(stepBtn)t=stepBtn;}   /* a click on the number inside a step button counts as a click on the button */
   var id=t.id;
   if(t.dataset.page){gotoPage(t.dataset.page);return;}
   if(t.dataset.step){

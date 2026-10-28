@@ -16,7 +16,13 @@
    3. Run the whole script. Needs SQL Server 2017 or later (FORMAT = 'CSV').
    ================================================================== */
 
-USE CentralAutomationEstimator;   -- change if you used another name in script 01
+USE CA_PROJ_COST_MODEL;   -- the database made in script 01 (if you used another name, change it here and in the check below)
+GO
+IF DB_NAME() <> N'CA_PROJ_COST_MODEL'
+BEGIN
+    RAISERROR('Not connected to CA_PROJ_COST_MODEL (the USE above failed): nothing was changed.', 16, 1);
+    SET NOEXEC ON;   -- skip the rest of the script
+END
 GO
 SET NOCOUNT ON;
 
@@ -33,7 +39,8 @@ CREATE TABLE #Stage
 
 BULK INSERT #Stage
 FROM 'D:\Imports\project-register.csv'          -- <<< change this path
-WITH (FORMAT = 'CSV', FIRSTROW = 2, FIELDQUOTE = '"', CODEPAGE = '65001', ROWTERMINATOR = '0x0d0a', TABLOCK);
+WITH (FORMAT = 'CSV', FIRSTROW = 2, FIELDQUOTE = '"', CODEPAGE = '65001', ROWTERMINATOR = '0x0a', TABLOCK);
+UPDATE #Stage SET VerifiedAt = REPLACE(VerifiedAt, CHAR(13), N'');   -- a CR LF file leaves a CR at the end of every line
 
 MERGE dbo.SwProjectRegister AS t
 USING (
@@ -66,11 +73,13 @@ WHEN MATCHED AND t.EstimateJson IS NULL THEN UPDATE SET
 WHEN NOT MATCHED BY TARGET THEN INSERT
      (RegisterId, EntryKey, FinYear, Kind, DeliveryModel, Status, ProjectName, ProjectType, Department,
       ValueINR, BenchmarkValueINR, ChargedINR, OneTimeINR, BenchmarkOneTimeINR, YearlyRunINR, BenchmarkYearlyRunINR,
-      PersonDays, TeamSize, Note, Workflow, SubmittedBy, SubmittedAt, VerifiedBy, VerifiedAt)
+      PersonDays, TeamSize, Note, Workflow, SubmittedBy, SubmittedAt, VerifiedBy, VerifiedAt, CostedBy)
 VALUES (s.RegisterId, s.EntryKey, s.FinYear, s.Kind, s.DeliveryModel, s.Status, s.ProjectName, s.ProjectType, s.Department,
         s.ValueINR, s.BenchmarkValueINR, s.ChargedINR, s.OneTimeINR, s.BenchmarkOneTimeINR, s.YearlyRunINR, s.BenchmarkYearlyRunINR,
-        s.PersonDays, s.TeamSize, s.Note, 'verified', s.SubmittedBy, s.VerifiedAt, s.VerifiedBy, s.VerifiedAt);
+        s.PersonDays, s.TeamSize, s.Note, 'verified', s.SubmittedBy, s.VerifiedAt, s.VerifiedBy, s.VerifiedAt,
+        COALESCE(NULLIF(s.VerifiedBy, N''), NULLIF(s.SubmittedBy, N''), N'Import'));   -- costed: these rows already carry their figures
 
 SELECT @@ROWCOUNT AS RowsInsertedOrUpdated;
 DROP TABLE #Stage;
 GO
+SET NOEXEC OFF;

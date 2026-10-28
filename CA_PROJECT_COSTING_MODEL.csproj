@@ -68,9 +68,32 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Web.config" />
+    <Content Include="Default.aspx" />
+    <Content Include="SW_CostModel\web\project_registry.aspx" />
+    <Content Include="SW_CostModel\web\project_report.aspx" />
+    <Content Include="SW_CostModel\web\api\estimator.ashx" />
+    <Content Include="SW_CostModel\web\assets\**\*.*" />
+    <!-- Content, Scripts, Standards and fonts (Bootstrap, Font Awesome, ...) are copied into the project root from the other portal; add them here or publish them with the site -->
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Default.aspx.cs">
+      <DependentUpon>Default.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="SW_CostModel\web\project_registry.aspx.cs">
+      <DependentUpon>project_registry.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="SW_CostModel\web\project_report.aspx.cs">
+      <DependentUpon>project_report.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="SW_CostModel\web\api\estimator.ashx.cs">
+      <DependentUpon>estimator.ashx</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="SW_CostModel\web\App_Code\*.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

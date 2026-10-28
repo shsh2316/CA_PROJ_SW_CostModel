@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Threading;
 using System.Web;
 using System.Web.UI;
 
@@ -23,27 +22,35 @@ public partial class LoginPage : Page
 
         string logo = Server.MapPath("~/Assets/images/AMNS_Logo_Small.png");
         if (File.Exists(logo))
-            LogoHtml = "<img src=\"" + HttpUtility.HtmlAttributeEncode(ResolveUrl("~/Assets/images/AMNS_Logo_Small.png")) + "\" alt=\"AM/NS India\">";
+            LogoHtml = "<img class=\"logo\" src=\"" + HttpUtility.HtmlAttributeEncode(ResolveUrl("~/Assets/images/AMNS_Logo_Small.png")) + "\" alt=\"AM/NS India\">";
 
         if (Request.QueryString["logout"] == "1")
         {
             LoginModule.SignOut(Context);
-            MessageHtml = "<span class=\"ok\">You have been signed out.</span>";
+            MessageHtml = "<span class=\"text-success\">You have been signed out.</span>";
             return;
         }
 
         if (Request.HttpMethod == "POST")
         {
+            string address = Request.UserHostAddress;
+            int wait = LoginModule.MinutesLockedOut(address);
+            if (wait > 0)
+            {
+                MessageHtml = "Too many wrong passwords. Try again in " + wait + (wait == 1 ? " minute." : " minutes.");
+                return;
+            }
             string user = Request.Form["user"] ?? "";
             if (LoginModule.CheckPassword(Request.Form["password"]))
             {
+                LoginModule.RegisterSuccess(address);
                 LoginModule.SignIn(Context, user);
                 Response.Redirect(ReturnTarget(), false);
                 Context.ApplicationInstance.CompleteRequest();
                 return;
             }
-            Thread.Sleep(750);   // slows down guessing
-            UserValue = user;
+            LoginModule.RegisterFailure(address);
+            UserValue = user.Length > 100 ? user.Substring(0, 100) : user;
             MessageHtml = "Incorrect password.";
             return;
         }
@@ -56,12 +63,24 @@ public partial class LoginPage : Page
         }
     }
 
-    /// <summary>The page the person asked for before being sent here, if it is on this site; otherwise the estimator.</summary>
+    /// <summary>The page the person asked for before being sent here, if it is a path on this site; otherwise the estimator.</summary>
     string ReturnTarget()
     {
         string back = Request.QueryString["returnUrl"];
-        if (!String.IsNullOrEmpty(back) && back.StartsWith("/") && !back.StartsWith("//") && !back.StartsWith("/\\"))
-            return back;
-        return ResolveUrl(AppStart);
+        return IsLocalPath(back) ? back : ResolveUrl(AppStart);
+    }
+
+    /// <summary>
+    /// True only for a plain path on this site such as /SW_CostModel/web/project_report.aspx?fy=2025-26.
+    /// Not allowed: another site (//host, /\host), anything with a control character (a tab or line break is dropped by
+    /// browsers, so /&lt;tab&gt;/host would become //host), a backslash, or a path that is not rooted.
+    /// </summary>
+    public static bool IsLocalPath(string url)
+    {
+        if (String.IsNullOrEmpty(url) || url.Length > 2000 || url[0] != '/') return false;
+        if (url.Length > 1 && (url[1] == '/' || url[1] == '\\')) return false;
+        foreach (char c in url)
+            if (c < 0x20 || c == 0x7f || c == '\\') return false;
+        return true;
     }
 }

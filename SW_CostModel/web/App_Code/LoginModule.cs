@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Security.Cryptography;
 using System.Security.Principal;
@@ -18,7 +19,7 @@ public sealed class LoginModule : IHttpModule
 {
     public const string AuthType = "CA-Login";
     const string CookieName = "CA_LOGIN";
-    const string Purpose = "CA_LOGIN v1";
+    const string Purpose = "CA_LOGIN v2";
     public const string LoginPath = "~/Default.aspx";
 
     public void Init(HttpApplication app)
@@ -39,12 +40,14 @@ public sealed class LoginModule : IHttpModule
         return (ConfigurationManager.AppSettings[key] ?? "").Trim();
     }
 
+    /// <summary>How long a sign-in lasts: appSettings LoginHours, 1 to 720 (8 when missing or not a number).</summary>
     static double SessionHours
     {
         get
         {
             double h;
-            return Double.TryParse(Setting("LoginHours"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out h) && h > 0 ? h : 8;
+            if (!Double.TryParse(Setting("LoginHours"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out h) || Double.IsNaN(h)) return 8;
+            return Math.Min(720, Math.Max(1, h));
         }
     }
 
@@ -65,12 +68,19 @@ public sealed class LoginModule : IHttpModule
     /// <summary>What can be opened without signing in: the login page and the files it needs.</summary>
     static bool IsPublic(string path)
     {
-        return path == "~/"
-            || path.Equals(LoginPath, StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("~/assets/", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("~/Assets/", StringComparison.OrdinalIgnoreCase)
-            || path.Equals("~/favicon.ico", StringComparison.OrdinalIgnoreCase);
+        if (path == "~/" || path.Equals(LoginPath, StringComparison.OrdinalIgnoreCase) || path.Equals("~/favicon.ico", StringComparison.OrdinalIgnoreCase))
+            return true;
+        foreach (string folder in PublicFolders)
+            if (path.StartsWith(folder, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
     }
+
+    // Files the login page needs: the site's own styles, scripts and fonts, and the libraries the login page uses
+    // (Bootstrap and Font Awesome in Content, Scripts, Standards, fonts), all served from this site.
+    static readonly string[] PublicFolders =
+    {
+        "~/SW_CostModel/web/assets/", "~/assets/", "~/Assets/", "~/Content/", "~/Scripts/", "~/Standards/", "~/fonts/"
+    };
 
     static void Deny(HttpContext ctx, string path)
     {
@@ -111,13 +121,68 @@ public sealed class LoginModule : IHttpModule
         return diff == 0;
     }
 
+    /* ---------- failed sign-ins: lock an address out for a while ---------- */
+
+    const int MaxFailures = 5;
+    static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(10), LockTime = TimeSpan.FromMinutes(5);
+    static readonly Dictionary<string, Attempts> Failures = new Dictionary<string, Attempts>();
+
+    sealed class Attempts
+    {
+        public int Count;
+        public DateTime First, LockedUntil;
+    }
+
+    /// <summary>Whole minutes (at least 1) the address must wait, or 0 when it may try.</summary>
+    public static int MinutesLockedOut(string address)
+    {
+        lock (Failures)
+        {
+            Attempts a;
+            if (!Failures.TryGetValue(address ?? "", out a) || a.LockedUntil <= DateTime.UtcNow) return 0;
+            return (int)Math.Max(1, Math.Ceiling((a.LockedUntil - DateTime.UtcNow).TotalMinutes));
+        }
+    }
+
+    /// <summary>Counts a wrong password; after MaxFailures within ten minutes the address is locked out for five.</summary>
+    public static void RegisterFailure(string address)
+    {
+        lock (Failures)
+        {
+            DateTime now = DateTime.UtcNow;
+            if (Failures.Count > 5000)
+            {
+                var old = new List<string>();
+                foreach (KeyValuePair<string, Attempts> kv in Failures)
+                    if (kv.Value.LockedUntil < now && now - kv.Value.First > FailureWindow) old.Add(kv.Key);
+                foreach (string k in old) Failures.Remove(k);
+            }
+            Attempts a;
+            if (!Failures.TryGetValue(address ?? "", out a)) Failures[address ?? ""] = a = new Attempts { First = now };
+            if (now - a.First > FailureWindow) { a.Count = 0; a.First = now; }
+            if (++a.Count >= MaxFailures) { a.LockedUntil = now + LockTime; a.Count = 0; a.First = now; }
+        }
+    }
+
+    public static void RegisterSuccess(string address)
+    {
+        lock (Failures) Failures.Remove(address ?? "");
+    }
+
     /* ---------- cookie ---------- */
+
+    /// <summary>The first characters of the configured password hash: a sign-in made with an older password stops working when the password changes.</summary>
+    static string PasswordTag()
+    {
+        string h = Setting("LoginPasswordSha256").ToLowerInvariant();
+        return h.Length > 12 ? h.Substring(0, 12) : h;
+    }
 
     /// <summary>Signs the person in: any name is accepted, it is only recorded as who submitted and approved entries.</summary>
     public static void SignIn(HttpContext ctx, string name)
     {
         name = CleanName(name);
-        string ticket = "v1|" + DateTime.UtcNow.AddHours(SessionHours).Ticks + "|" + name;
+        string ticket = "v2|" + DateTime.UtcNow.AddHours(SessionHours).Ticks + "|" + PasswordTag() + "|" + name;
         byte[] protectedBytes = MachineKey.Protect(Encoding.UTF8.GetBytes(ticket), Purpose);
         var cookie = new HttpCookie(CookieName, HttpServerUtility.UrlTokenEncode(protectedBytes))
         {
@@ -125,6 +190,9 @@ public sealed class LoginModule : IHttpModule
             Secure = ctx.Request.IsSecureConnection,
             Path = ctx.Request.ApplicationPath
         };
+#if !__MonoCS__
+        cookie.SameSite = SameSiteMode.Lax;   // .NET Framework 4.7.2 and later (Mono, used only for testing off Windows, has no SameSite)
+#endif
         ctx.Response.Cookies.Add(cookie);
     }
 
@@ -143,11 +211,12 @@ public sealed class LoginModule : IHttpModule
         {
             byte[] bytes = MachineKey.Unprotect(HttpServerUtility.UrlTokenDecode(cookie.Value), Purpose);
             if (bytes == null) return null;
-            string[] parts = Encoding.UTF8.GetString(bytes).Split(new[] { '|' }, 3);
+            string[] parts = Encoding.UTF8.GetString(bytes).Split(new[] { '|' }, 4);
             long expires;
-            if (parts.Length != 3 || parts[0] != "v1" || !Int64.TryParse(parts[1], out expires)) return null;
+            if (parts.Length != 4 || parts[0] != "v2" || !Int64.TryParse(parts[1], out expires)) return null;
             if (expires < DateTime.UtcNow.Ticks) return null;
-            return CleanName(parts[2]);
+            if (!String.Equals(parts[2], PasswordTag(), StringComparison.Ordinal)) return null;   // the password was changed since
+            return CleanName(parts[3]);
         }
         catch (Exception)
         {

@@ -88,7 +88,7 @@ the Approval page: the cost is worked out there with the current masters and rec
 verification. Costs are calculated by the page, not by SQL Server.
 
 The entries belong to `@SubmittedBy` (whoever runs the script, unless changed). An entry has
-to be verified by a different admin. Running the script again updates entries that are not
+to be verified by an admin (with the shared login that can be the same person: `AllowSelfVerification`). Running the script again updates entries that are not
 verified yet and leaves verified ones alone; an entry is identified by project name,
 financial year and record type.
 

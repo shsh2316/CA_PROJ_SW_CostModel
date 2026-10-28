@@ -3,12 +3,14 @@
    01. Database, login and permissions for the IIS application pool
 
    Run once as a sysadmin (SSMS, normal query mode). Safe to run again.
+   The IIS application pool named below must already exist (IIS Manager >
+   Application Pools): CREATE LOGIN fails for a pool that does not exist yet.
    Needs SQL Server 2016 SP1 or later.
 
    Before running, set the two values below:
-     @DbName    the database name. If you change it, change it in
-                02_create_tables.sql, 03_seed_master_data.sql and in
-                the CCCConString entry in Web.config too.
+     @DbName    the database name (CA_PROJ_COST_MODEL). If you change it, change the
+                USE line and the DB_NAME() check at the top of scripts 02 to 06, and
+                the CCCConString entry in Web.config.
      @AppLogin  the Windows account the IIS site runs as:
                 - SQL Server on the same machine as IIS:
                     IIS APPPOOL\<application pool name>
@@ -21,7 +23,7 @@
    ================================================================== */
 SET NOCOUNT ON;
 
-DECLARE @DbName   sysname = N'CentralAutomationEstimator';
+DECLARE @DbName   sysname = N'CA_PROJ_COST_MODEL';
 DECLARE @AppLogin sysname = N'IIS APPPOOL\CentralAutomationEstimator';
 
 DECLARE @sql nvarchar(max);

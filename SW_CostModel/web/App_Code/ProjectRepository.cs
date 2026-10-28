@@ -151,14 +151,18 @@ public static class ProjectRepository
         if (ownId.Length > 200) ownId = ownId.Substring(0, 200);
         bool costed = user.IsAdmin;   // entries from others arrive without costs
 
-        string id = ownId, wf = null, by = null;
+        string id = ownId, wf = null, by = null, existingName = null;
         foreach (string candidate in String.IsNullOrEmpty(editingId) ? new[] { ownId } : new[] { editingId, ownId })
         {
-            DataTable t = Db.Select("SELECT Workflow, SubmittedBy FROM dbo.SwProjectRegister WHERE RegisterId = " + Db.Quote(candidate));
-            if (t.Rows.Count > 0) { wf = Db.Str(t.Rows[0], "Workflow"); by = Db.Str(t.Rows[0], "SubmittedBy"); }
+            DataTable t = Db.Select("SELECT Workflow, SubmittedBy, ProjectName FROM dbo.SwProjectRegister WHERE RegisterId = " + Db.Quote(candidate));
+            if (t.Rows.Count > 0) { wf = Db.Str(t.Rows[0], "Workflow"); by = Db.Str(t.Rows[0], "SubmittedBy"); existingName = Db.Str(t.Rows[0], "ProjectName"); }
             id = candidate;
             if (wf != null) break;
         }
+        // A new registration (no entry being edited) that lands on one of your own entries is only a resubmission when it is the
+        // same project. Names that reduce to the same key ("SAP Interface" and "SAP-Interface") must not overwrite each other.
+        if (wf != null && String.IsNullOrEmpty(editingId) && !String.Equals((existingName ?? "").Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new ApiException(409, "conflict", "You already have a different project, '" + existingName + "', with the same year and record type under this key. Give this project a clearly different name, or change the year or record type.");
         if (wf == "verified") throw new ApiException(409, "conflict", "That entry is already verified. Change the year or record type to add another.");
         if (wf != null && !user.Is(by)) throw new ApiException(403, "forbidden", "That entry was submitted by someone else.");
 
@@ -209,7 +213,7 @@ public static class ProjectRepository
             "@value", costed ? Json.Num(e, "value", 0, MaxValue) : 0m, "@valueB", costed ? Json.Num(e, "valueB", 0, MaxValue) : 0m,
             "@charged", costed ? Json.Num(e, "charged", 0, MaxValue) : 0m,
             "@oneTime", cost("oneTime"), "@oneTimeB", cost("oneTimeB"), "@yearly", cost("yearly"), "@yearlyB", cost("yearlyB"),
-            "@pd", Math.Round(Json.Num(e, "personDays", 0, 99999999999m), 1), "@team", (int)Math.Round(Json.Num(e, "team", 0, 1000000)),
+            "@pd", Math.Round(Json.Num(e, "personDays", 0, 99999999999m), 1, MidpointRounding.AwayFromZero), "@team", (int)Math.Round(Json.Num(e, "team", 0, 1000000), MidpointRounding.AwayFromZero),
             "@valYear", Json.Num(e, "valueYearly", 0, MaxValue), "@valOnce", Json.Num(e, "valueOnce", 0, MaxValue)
         };
     }
@@ -245,6 +249,9 @@ public static class ProjectRepository
         var batch = GuardPending(id, rv);
         if (costing != null)
         {
+            // A verification is final: the figures must really be there (a body without them would record zero cost for ever).
+            foreach (string needed in new[] { "value", "valueB", "oneTime", "yearly" })
+                if (!Json.Has(costing, needed)) throw new ApiException(400, "bad_request", "The cost figures are missing. Open the entry again and verify it from the review page.");
             string state = Json.Text(costing, "state", 4000000);
             if (state != null && !(SafeParse(state) is IDictionary<string, object>))
                 throw new ApiException(400, "bad_request", "The saved estimate is not valid.");
@@ -254,7 +261,7 @@ public static class ProjectRepository
                 FigureAssignments + " WHERE RegisterId = @id", fields.ToArray());
             value = Json.Num(costing, "value", 0, MaxValue);
         }
-        decimal adj = Math.Round(Json.Num(body, "adjustedValue", 0, MaxValue)), cur = Math.Round(value);
+        decimal adj = Math.Round(Json.Num(body, "adjustedValue", 0, MaxValue), MidpointRounding.AwayFromZero), cur = Math.Round(value, MidpointRounding.AwayFromZero);
         bool adjusted = adj > 0 && adj != cur;
         if (adjusted && comment.Length == 0) throw new ApiException(400, "bad_request", "Add a comment explaining the adjusted value.");
 
@@ -288,13 +295,15 @@ public static class ProjectRepository
         public DateTime UpdatedAt;
     }
 
-    /// <summary>Reads a pending entry for review. expectedUpdated, when given, must match, so a reviewer never approves a version they have not seen.</summary>
+    /// <summary>Reads a pending entry for review. expectedUpdated is required and must match, so a reviewer never approves a version they have not seen.</summary>
     static Review ReadForReview(CurrentUser user, string id, string expectedUpdated, string ownEntryMessage)
     {
+        if (String.IsNullOrEmpty(expectedUpdated))
+            throw new ApiException(400, "bad_request", "The version of the entry being reviewed is missing. Reload the page and open the entry again.");
         DataTable t = Db.Select("SELECT Workflow, SubmittedBy, ValueINR, UpdatedAt, CostedBy FROM dbo.SwProjectRegister WHERE RegisterId = " + Db.Quote(id ?? ""));
         if (t.Rows.Count == 0) throw new ApiException(404, "not_found", "This entry no longer exists.");
         DataRow r = t.Rows[0];
-        if (Db.Str(r, "Workflow") != "pending" || (!String.IsNullOrEmpty(expectedUpdated) && expectedUpdated != Db.Iso(r, "UpdatedAt")))
+        if (Db.Str(r, "Workflow") != "pending" || expectedUpdated != Db.Iso(r, "UpdatedAt"))
             throw new ApiException(409, "conflict", "This entry changed. Review it again.");
         if (user.Is(Db.Str(r, "SubmittedBy")) && !user.CanSelfVerify) throw new ApiException(403, "forbidden", ownEntryMessage);
         return new Review { Costed = Db.Str(r, "CostedBy") != null, Value = Db.Dec(r, "ValueINR") ?? 0, UpdatedAt = (DateTime)r["UpdatedAt"] };

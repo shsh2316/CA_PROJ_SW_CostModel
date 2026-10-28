@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Ports;
 
 /// <summary>
@@ -31,20 +32,45 @@ public static class Db
         }
     }
 
-    /// <summary>Runs a SELECT. dbClassSql hands a failure back as an ErrorNo / Error table; that becomes an ApiException here.</summary>
+    /// <summary>Runs code while holding the one shared connection. Waits up to 30 seconds, then gives up with 503 instead of queueing for ever.</summary>
+    static T WithConnection<T>(dbClassSql db, Func<T> work)
+    {
+        if (!Monitor.TryEnter(db, 30000))
+            throw new ApiException(503, "database_busy", "The database connection is busy. Try again in a moment.");
+        try { return work(); }
+        finally { Monitor.Exit(db); }
+    }
+
+    // SQL Server / network errors that mean "the connection was lost": the next try opens a new connection
+    static readonly int[] LostConnection = { -1, -2, 2, 53, 64, 233, 10053, 10054, 10060, 10061 };
+
+    /// <summary>
+    /// Runs a SELECT. dbClassSql hands a failure back as an ErrorNo / Error table; that becomes an ApiException here.
+    /// After a database restart or an idle disconnect the first command fails and dbClassSql reconnects: so a lost connection is tried once more.
+    /// </summary>
     public static DataTable Select(string sql)
     {
         dbClassSql db = Instance();
-        DataTable dt;
-        lock (db)
-            dt = db.SelectDT(sql);
+        DataTable dt = null;
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            dt = WithConnection(db, () => db.SelectDT(sql));
+            if (!IsErrorTable(dt)) return dt;
+            int number;
+            if (attempt == 0 && Int32.TryParse(Convert.ToString(dt.Rows[0]["ErrorNo"]), out number) && Array.IndexOf(LostConnection, number) >= 0) continue;
+            break;
+        }
         if (dt == null)
             throw new ApiException(503, "database_unavailable", "The database returned nothing.");
-        if (dt.Columns.Count == 2 && dt.Columns.Contains("ErrorNo") && dt.Columns.Contains("Error"))
-            throw new ApiException(503, "database_unavailable",
-                "Cannot read from SQL Server. Check CCCConString in Web.config and that the application pool account can log in to the database.",
-                new InvalidOperationException(dt.Rows.Count > 0 ? Convert.ToString(dt.Rows[0]["Error"]) : "Database error."));
-        return dt;
+        // The exact SQL error goes to the server log (503 is logged by the API handler); the person sees a plain message.
+        throw new ApiException(503, "database_unavailable",
+            "The database is not available. Try again; if it keeps happening, tell the administrator.",
+            new InvalidOperationException(dt.Rows.Count > 0 ? "SQL Server error " + dt.Rows[0]["ErrorNo"] + ": " + dt.Rows[0]["Error"] : "Database error."));
+    }
+
+    static bool IsErrorTable(DataTable dt)
+    {
+        return dt != null && dt.Columns.Count == 2 && dt.Columns.Contains("ErrorNo") && dt.Columns.Contains("Error") && dt.Rows.Count > 0;
     }
 
     /// <summary>A quoted Unicode text literal for a SELECT: N'it''s'.</summary>
@@ -103,12 +129,16 @@ public static class Db
             if (count == 0) return;
             if (parameters.Count > MaxParameters)
                 throw new ApiException(400, "bad_request", "There are too many rows to save in one go.");
-            string sql = "SET XACT_ABORT ON;\n" + (guard == null ? body.ToString() : "IF (" + guard + ")\nBEGIN\n" + body + "END");
+            // NOCOUNT OFF: dbClassSql counts the rows written, and a server whose default is NOCOUNT ON would make every write look like a failure
+            string sql = "SET NOCOUNT OFF;\nSET XACT_ABORT ON;\n" + (guard == null ? body.ToString() : "IF (" + guard + ")\nBEGIN\n" + body + "END");
             dbClassSql db = Instance();
-            bool ok;
-            lock (db)
-                ok = db.ExecuteNonQueryWithCommit(sql, parameters.ToArray());
-            if (!ok) throw new ApiException(status, code, message);
+            SqlParameter[] ps = parameters.ToArray();
+            bool ok = WithConnection(db, () => db.ExecuteNonQueryWithCommit(sql, ps));
+            if (ok) return;
+            // dbClassSql answers false both for a failed guard (someone changed the entry first) and for a SQL error.
+            // Tell them apart: if the database itself cannot be read, this throws 503 and is logged; otherwise the entry changed.
+            Select("SELECT 1 AS Alive");
+            throw new ApiException(status, code, message);
         }
     }
 

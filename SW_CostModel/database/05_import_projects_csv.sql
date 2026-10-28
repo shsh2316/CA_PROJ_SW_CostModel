@@ -30,29 +30,36 @@
      3. Set @CheckOnly = 0 and run again to import.
    The entries belong to @SubmittedBy (you, unless you change it). An entry
    must be verified by an admin other than the person it belongs to.
-   Needs SQL Server 2017 or later (BULK INSERT ... FORMAT = 'CSV').
+   Needs SQL Server 2017 or later and database compatibility level 140 or higher
+   (BULK INSERT ... FORMAT = 'CSV', STRING_AGG).
    ================================================================== */
 
-USE CentralAutomationEstimator;   -- change if you used another name in script 01
+USE CA_PROJ_COST_MODEL;   -- the database made in script 01 (if you used another name, change it here and in the check below)
+GO
+IF DB_NAME() <> N'CA_PROJ_COST_MODEL'
+BEGIN
+    RAISERROR('Not connected to CA_PROJ_COST_MODEL (the USE above failed): nothing was changed.', 16, 1);
+    SET NOEXEC ON;   -- skip the rest of the script
+END
 GO
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
 DECLARE @Folder      nvarchar(400) = N'D:\Imports\Estimates\';   -- <<< folder with projects.csv
 DECLARE @CheckOnly   bit           = 1;                          -- 1 = check and preview only, 0 = import
-DECLARE @SubmittedBy nvarchar(200) = SUSER_SNAME();              -- whose entries these are (DOMAIN\username)
+DECLARE @SubmittedBy nvarchar(200) = N'Import';                  -- whose entries these are: the name someone types at the login page to edit them
 
 IF RIGHT(@Folder, 1) NOT IN (N'\', N'/') SET @Folder += N'\';
 
 /* ---------- 1. load the file (all text) ---------- */
 IF OBJECT_ID('tempdb..#P') IS NOT NULL DROP TABLE #P;
-CREATE TABLE #P (ProjectName nvarchar(400), Department nvarchar(400), PreparedBy nvarchar(400), FinancialYear nvarchar(400),
-    RecordAs nvarchar(400), ProjectStatus nvarchar(400), DeliveryModel nvarchar(400), ProjectType nvarchar(400),
-    DurationDays nvarchar(400), NamedUsers nvarchar(400), Complexity nvarchar(400), TeamSize nvarchar(400), TeamLevel nvarchar(400),
-    NeedsServers nvarchar(400), HostingModel nvarchar(400), Environments nvarchar(400), CpuCores nvarchar(400), RamGB nvarchar(400),
-    StorageTB nvarchar(400), GpuModel nvarchar(400), GpuCount nvarchar(400), DatabaseEngine nvarchar(400), OperatingSystem nvarchar(400),
-    YearsOfOwnership nvarchar(400), Benefit1 nvarchar(400), Benefit1Qty nvarchar(400), Benefit2 nvarchar(400), Benefit2Qty nvarchar(400),
-    Benefit3 nvarchar(400), Benefit3Qty nvarchar(400), OneTimeValue nvarchar(400), Note nvarchar(2000));
+CREATE TABLE #P (ProjectName nvarchar(400) COLLATE DATABASE_DEFAULT, Department nvarchar(400) COLLATE DATABASE_DEFAULT, PreparedBy nvarchar(400) COLLATE DATABASE_DEFAULT, FinancialYear nvarchar(400) COLLATE DATABASE_DEFAULT,
+    RecordAs nvarchar(400) COLLATE DATABASE_DEFAULT, ProjectStatus nvarchar(400) COLLATE DATABASE_DEFAULT, DeliveryModel nvarchar(400) COLLATE DATABASE_DEFAULT, ProjectType nvarchar(400) COLLATE DATABASE_DEFAULT,
+    DurationDays nvarchar(400) COLLATE DATABASE_DEFAULT, NamedUsers nvarchar(400) COLLATE DATABASE_DEFAULT, Complexity nvarchar(400) COLLATE DATABASE_DEFAULT, TeamSize nvarchar(400) COLLATE DATABASE_DEFAULT, TeamLevel nvarchar(400) COLLATE DATABASE_DEFAULT,
+    NeedsServers nvarchar(400) COLLATE DATABASE_DEFAULT, HostingModel nvarchar(400) COLLATE DATABASE_DEFAULT, Environments nvarchar(400) COLLATE DATABASE_DEFAULT, CpuCores nvarchar(400) COLLATE DATABASE_DEFAULT, RamGB nvarchar(400) COLLATE DATABASE_DEFAULT,
+    StorageTB nvarchar(400) COLLATE DATABASE_DEFAULT, GpuModel nvarchar(400) COLLATE DATABASE_DEFAULT, GpuCount nvarchar(400) COLLATE DATABASE_DEFAULT, DatabaseEngine nvarchar(400) COLLATE DATABASE_DEFAULT, OperatingSystem nvarchar(400) COLLATE DATABASE_DEFAULT,
+    YearsOfOwnership nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit1 nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit1Qty nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit2 nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit2Qty nvarchar(400) COLLATE DATABASE_DEFAULT,
+    Benefit3 nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit3Qty nvarchar(400) COLLATE DATABASE_DEFAULT, OneTimeValue nvarchar(400) COLLATE DATABASE_DEFAULT, Note nvarchar(2000) COLLATE DATABASE_DEFAULT);
 
 DECLARE @sql nvarchar(max), @set nvarchar(max), @msg nvarchar(2048);
 -- 0x0a ends a row whether the file uses Windows (CR LF) or Unix (LF) line ends; CR is removed below
@@ -87,7 +94,7 @@ UPDATE #P SET DurationDays = REPLACE(DurationDays, N',', N''), NamedUsers = REPL
 
 /* ---------- 2. allowed values (the template's wording; codes and the page's longer wording are accepted too) ---------- */
 IF OBJECT_ID('tempdb..#C') IS NOT NULL DROP TABLE #C;
-CREATE TABLE #C (Field varchar(20), Label nvarchar(60), Code varchar(20));
+CREATE TABLE #C (Field varchar(20) COLLATE DATABASE_DEFAULT, Label nvarchar(60) COLLATE DATABASE_DEFAULT, Code varchar(20) COLLATE DATABASE_DEFAULT);
 INSERT #C VALUES
  ('kind','New project','new'),('kind','New','new'),('kind','Maintenance (AMC)','amc'),('kind','Maintenance','amc'),('kind','AMC','amc'),('kind','Enhancement','enh'),('kind','enh','enh'),
  ('status','Planned','planned'),('status','In progress','progress'),('status','progress','progress'),('status','Completed','completed'),
@@ -277,3 +284,4 @@ IF EXISTS (SELECT 1 FROM #Out WHERE Result <> N'Skip: already verified')
 ELSE
     PRINT N'Nothing imported: every project in the file is already verified.';
 GO
+SET NOEXEC OFF;

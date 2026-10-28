@@ -9,7 +9,13 @@
    the register.
    ================================================================== */
 
-USE CentralAutomationEstimator;   -- change if you used another name in script 01
+USE CA_PROJ_COST_MODEL;   -- the database made in script 01 (if you used another name, change it here and in the check below)
+GO
+IF DB_NAME() <> N'CA_PROJ_COST_MODEL'
+BEGIN
+    RAISERROR('Not connected to CA_PROJ_COST_MODEL (the USE above failed): nothing was changed.', 16, 1);
+    SET NOEXEC ON;   -- skip the rest of the script
+END
 GO
 SET NOCOUNT ON;
 GO
@@ -42,3 +48,4 @@ ORDER BY m.name, r.name;
 -- d. The register (empty on a new install)
 SELECT Workflow, COUNT(*) AS Entries FROM dbo.SwProjectRegister GROUP BY Workflow;
 GO
+SET NOEXEC OFF;

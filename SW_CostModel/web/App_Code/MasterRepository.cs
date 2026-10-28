@@ -203,6 +203,7 @@ public static class MasterRepository
 
         IList roles = Json.List(doc, "roles");
         if (roles == null) return;
+        if (roles.Count == 0) throw new ApiException(400, "bad_request", "Keep at least one role: an empty list would delete every role.");
         batch.Add("DELETE dbo.SwRole");
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int sort = 0;

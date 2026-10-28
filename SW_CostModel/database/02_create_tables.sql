@@ -27,7 +27,13 @@
    the CSV with 04_import_legacy_register_csv.sql.
    ================================================================== */
 
-USE CentralAutomationEstimator;   -- change if you used another name in script 01
+USE CA_PROJ_COST_MODEL;   -- the database made in script 01 (if you used another name, change it here and in the check below)
+GO
+IF DB_NAME() <> N'CA_PROJ_COST_MODEL'
+BEGIN
+    RAISERROR('Not connected to CA_PROJ_COST_MODEL (the USE above failed): nothing was changed.', 16, 1);
+    SET NOEXEC ON;   -- skip the rest of the script
+END
 GO
 SET NOCOUNT ON;
 GO
@@ -251,6 +257,10 @@ CREATE TABLE dbo.SwProjectRegister
     CONSTRAINT CK_SwReg_Workflow CHECK (Workflow IN ('pending','info','verified'))
 );
 GO
+/* The page filters the register by who submitted the entry */
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SwProjectRegister_SubmittedBy' AND object_id = OBJECT_ID('dbo.SwProjectRegister'))
+    CREATE INDEX IX_SwProjectRegister_SubmittedBy ON dbo.SwProjectRegister (SubmittedBy) INCLUDE (Workflow);
+GO
 /* Upgrade: columns added after the first IIS version */
 IF COL_LENGTH('dbo.SwProjectRegister', 'CostedBy') IS NULL
 BEGIN
@@ -329,3 +339,4 @@ GO
    SELECT * FROM dbo.vw_SwYearlySummary ORDER BY FinYear DESC;
    SELECT RegisterId, ProjectName, FinYear, Kind, Workflow, ValueINR FROM dbo.SwProjectRegister ORDER BY UpdatedAt DESC;
 */
+SET NOEXEC OFF;

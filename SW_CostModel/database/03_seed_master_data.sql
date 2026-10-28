@@ -10,7 +10,13 @@
    Replace them with your real rates on the Masters page.
    ================================================================== */
 
-USE CentralAutomationEstimator;   -- change if you used another name in script 01
+USE CA_PROJ_COST_MODEL;   -- the database made in script 01 (if you used another name, change it here and in the check below)
+GO
+IF DB_NAME() <> N'CA_PROJ_COST_MODEL'
+BEGIN
+    RAISERROR('Not connected to CA_PROJ_COST_MODEL (the USE above failed): nothing was changed.', 16, 1);
+    SET NOEXEC ON;   -- skip the rest of the script
+END
 GO
 SET NOCOUNT ON;
 GO
@@ -153,7 +159,6 @@ VALUES ('manhours', N'Man-hours saved',                      N'hours',  500,   1
        ('other',    N'Other benefit',                        N'INR',    1,     8);
 GO
 
-/* First admin: replace with your own Windows login, then run this statement.
-   Everyone else is added automatically (not as admin) when they first open the page. */
--- MERGE dbo.SwAppUser AS t USING (SELECT N'DOMAIN\username' AS UserLogin, N'Your Name' AS DisplayName) AS s ON t.UserLogin = s.UserLogin
--- WHEN MATCHED THEN UPDATE SET IsAdmin = 1 WHEN NOT MATCHED THEN INSERT (UserLogin, DisplayName, IsAdmin) VALUES (s.UserLogin, s.DisplayName, 1);
+/* Admins: the site has one shared password and everyone who signs in is an admin, so there is nobody to set up here.
+   People are added to dbo.SwAppUser automatically under the name they type at the login page. */
+SET NOEXEC OFF;
