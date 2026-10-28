@@ -94,6 +94,8 @@ To undo the project-list import: `DELETE dbo.SwProjectRegister WHERE SubmittedBy
 3. **Build and publish.** Build > Publish > Folder, configuration **Release**. The output holds the pages, `assets`, `Web.config`
    and `bin` (including `bin\roslyn`, the compiler ASP.NET uses for the page markup). Copy the output to the server, for example
    `C:\inetpub\CentralAutomationEstimator`.
+   The compiled site is `bin\CA_PROJECT_COSTING_MODEL.dll`: it comes only from a build (the repository holds no compiled code), so copy
+   the published output, not the source files, and publish again after every change to a `.cs` file.
 4. IIS Manager > Sites > Add Website: physical path = that folder, application pool = `CentralAutomationEstimator`.
 5. Select the site > **Authentication**: **Anonymous Authentication enabled**, **Windows Authentication disabled**. The sign-in is done by
    the site itself (`LoginModule` and the `Default.aspx` login page).
@@ -179,6 +181,7 @@ entries they submitted themselves: `AllowSelfVerification` in `Web.config`).
 |---|---|
 | HTTP 500.19 or a configuration error page | a feature from step 1 is missing (usually ASP.NET 4.x), `CCCConString` is missing or `Web.config` is not valid XML, or a `web.config` was added in a subfolder (remove it) |
 | Configuration error naming `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | `bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll` or the `bin\roslyn` folder was not copied: publish again and copy the whole output |
+| Remote PC: generic "Runtime Error" page; on the server itself: "Could not load file or assembly 'CA_PROJECT_COSTING_MODEL'" | `bin\CA_PROJECT_COSTING_MODEL.dll` is not on the server (the site was copied as source, or `bin` was not copied). Build in Release, Build > Publish > Folder, copy the whole output including `bin`, keep the server's `Web.config`, recycle the pool. Details of an error show only on the server's own browser (`customErrors` is `RemoteOnly`): leave it so |
 | "Could not load type 'LoginPage'" / `LoginModule` not found | the project items of step 4.2 are not part of the project, so they were not compiled into `bin` |
 | Login page has no styling | `Content\bootstrap.min.css` is missing (step 4.1): check the folder is in the site root; the browser's developer tools (F12 > Network) show the 404 |
 | Icons are empty squares | Font Awesome's `fonts` folder is missing next to `Content` |
