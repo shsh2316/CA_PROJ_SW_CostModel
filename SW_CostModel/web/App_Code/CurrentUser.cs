@@ -4,7 +4,8 @@ using System.Security.Principal;
 using System.Web;
 
 /// <summary>
-/// The person calling the API, from Windows authentication in IIS.
+/// The person calling the API: the shared login checked by BasicAuthModule (or, if the site is changed to use
+/// Windows authentication, the Windows user).
 /// Each person is added to dbo.SwAppUser on first use; set IsAdmin = 1 there to let
 /// them see costs, change masters, upload Excel workbooks and verify entries.
 /// </summary>
@@ -13,6 +14,7 @@ public sealed class CurrentUser
     public string Login { get; private set; }          // DOMAIN\username, null when anonymous
     public string DisplayName { get; private set; }
     public bool IsAdmin { get; private set; }
+    public bool CanSelfVerify { get; private set; }    // may verify an entry they submitted themselves (shared login)
 
     public bool IsSignedIn { get { return !String.IsNullOrEmpty(Login); } }
 
@@ -42,6 +44,12 @@ public sealed class CurrentUser
             u.DisplayName = Db.Str(r, "DisplayName") ?? u.DisplayName;
             u.IsAdmin = r["IsAdmin"] != DBNull.Value && Convert.ToBoolean(r["IsAdmin"]);
         }
+        if (p.Identity.AuthenticationType == BasicAuthModule.AuthType)
+        {
+            // The one shared login is the admin: there are no other people or roles.
+            u.IsAdmin = true;
+            u.CanSelfVerify = BasicAuthModule.AllowSelfVerification;
+        }
         return u;
     }
 
@@ -61,7 +69,7 @@ public sealed class CurrentUser
     public void RequireSignIn()
     {
         if (!IsSignedIn)
-            throw new ApiException(401, "unauthenticated", "Sign in with your Windows account to do this. Ask the administrator to turn on Windows Authentication for this site.");
+            throw new ApiException(401, "unauthenticated", "Sign in to do this.");
     }
 
     public void RequireAdmin(string message)

@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 /// The project register and its approval workflow (dbo.SwProjectRegister, dbo.SwProjectLog).
 /// The rules the page shows are enforced here too:
 ///   - anyone signed in can submit; resubmitting updates your own entry until it is verified
-///   - only admins verify or send back, and never their own entry; one verification is final
+///   - only admins verify or send back, and never their own entry (unless the site has a single shared login: AllowSelfVerification); one verification is final
 ///   - only the submitter can edit or delete, and never after verification
 ///   - people who are not admins see only their own entries, without any cost figures;
 ///     what they submit is stored without costs and an admin costs it when verifying
@@ -296,7 +296,7 @@ public static class ProjectRepository
         DataRow r = t.Rows[0];
         if (Db.Str(r, "Workflow") != "pending" || (!String.IsNullOrEmpty(expectedUpdated) && expectedUpdated != Db.Iso(r, "UpdatedAt")))
             throw new ApiException(409, "conflict", "This entry changed. Review it again.");
-        if (user.Is(Db.Str(r, "SubmittedBy"))) throw new ApiException(403, "forbidden", ownEntryMessage);
+        if (user.Is(Db.Str(r, "SubmittedBy")) && !user.CanSelfVerify) throw new ApiException(403, "forbidden", ownEntryMessage);
         return new Review { Costed = Db.Str(r, "CostedBy") != null, Value = Db.Dec(r, "ValueINR") ?? 0, UpdatedAt = (DateTime)r["UpdatedAt"] };
     }
 

@@ -95,7 +95,7 @@ public partial class ProjectReportPage : Page
             user = CurrentUser.Load(Context);
             if (!user.IsSignedIn)
             {
-                Say("Sign in with your Windows account to see estimates. Ask the administrator to turn on Windows Authentication for this site.");
+                Say("Sign in to see estimates.");
                 return;
             }
         }

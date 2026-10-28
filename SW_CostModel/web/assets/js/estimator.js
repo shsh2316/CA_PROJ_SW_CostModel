@@ -972,7 +972,7 @@ function onMasterChange(force){
 
 /* ================= server API, users, register ================= */
 /* api/estimator.ashx keeps the masters and the register in SQL Server and knows who is
-   signed in (Windows authentication in IIS). Only admins receive prices and costs. Without
+   signed in (the shared login). Only admins receive prices and costs. Without
    the server (page opened as a file, server or database down) the page works as a calculator
    for whoever opens it: masters and the current estimate stay in this browser. */
 var API='api/estimator.ashx';
@@ -995,7 +995,7 @@ function wfOf(d){return d.wf||'pending';}
 function findReg(id){return regDocs.filter(function(x){return x._id===id;})[0];}
 function nameOf(id){if(!id)return 'Someone';if(isMe(id))return 'you';var p=NAMES[id];return (p&&p.name)||id;}
 function realName(id){if(!id)return '';var p=NAMES[id];return (p&&p.name)||id;}
-function applyMe(me){me=me||{};ME={id:me.id||null,name:me.name||''};var was=ISADMIN;ISADMIN=!!me.isAdmin;return was!==ISADMIN;}
+function applyMe(me){me=me||{};ME={id:me.id||null,name:me.name||'',selfVerify:!!me.selfVerify};var was=ISADMIN;ISADMIN=!!me.isAdmin;return was!==ISADMIN;}
 function applyMasters(doc){
   if(!doc)return;
   MKEYS.forEach(function(k){if(doc[k]&&!MDIRTY[k])mergeM(k,doc[k]);});
@@ -1061,7 +1061,7 @@ function submitEntry(st,R,editId,reply){
 }
 async function saveReg(){
   if(DBSTATE!=='ready'){toast('The register is not available: '+DBERR);return;}
-  if(!ME.id){toast('Sign in with your Windows account to submit entries');return;}
+  if(!ME.id){toast('Sign in to submit entries');return;}
   if(!String(S.name||'').trim()){toast('Enter the project name in Basics');STEP='basics';update();return;}
   try{
     await submitEntry(S,LAST,editingId,S.reg.reply);
@@ -1073,7 +1073,7 @@ async function verifyReg(id){
   var d=findReg(id);
   if(DBSTATE!=='ready'||!d)return;
   if(!isAdmin()){toast('Only admins can verify entries');return;}
-  if(isMe(d.by)){toast('Another admin needs to verify your entry');return;}
+  if(isMe(d.by)&&!ME.selfVerify){toast('Another admin needs to verify your entry');return;}
   var st=stateOf(d);
   if(apCharged!=='')st.reg.charged=Math.max(0,+apCharged||0);
   var R=calc2(st),costing=Object.assign(figuresOf(st,R),{state:savedState(st)});
@@ -1089,7 +1089,7 @@ async function sendBack(id){
   var d=findReg(id),text=apNote.trim();
   if(DBSTATE!=='ready'||!d)return;
   if(!text){toast('Say what information is needed');return;}
-  if(isMe(d.by)){toast('Another admin needs to review your entry');return;}
+  if(isMe(d.by)&&!ME.selfVerify){toast('Another admin needs to review your entry');return;}
   try{
     await api('sendBack',{id:id,updated:d.updated||'',comment:text});
     apAdj='';apNote='';apCharged='';toast('Sent back to the submitter');
@@ -1138,7 +1138,7 @@ function wfLine(d){
 }
 function wfTag(d){var w=wfOf(d);return '<span class="tag '+(w==='verified'?'ok':(w==='info'?'warn':'wait'))+'">'+esc(WF[w])+'</span>';}
 function entryRow(d){
-  var w=wfOf(d),mine=isMe(d.by),canReview=!!ME.id&&!mine&&isAdmin();
+  var w=wfOf(d),mine=isMe(d.by),canReview=!!ME.id&&(!mine||ME.selfVerify)&&isAdmin();
   var dup=w!=='verified'&&regDocs.filter(function(x){return x.key&&x.key===d.key&&wfOf(x)!=='verified';}).length>1;
   var acts=actBtn('open',d._id,(w==='pending'&&canReview)?'Review':'Open',(w==='pending'&&canReview)?'ok':'');
   if(mine&&w!=='verified')acts+=actBtn('edit',d._id,'Edit')+actBtn('del',d._id,'Delete','del');
@@ -1160,7 +1160,7 @@ function myRow(d){
 }
 function renderMine(){
   var h='<div class="reg-head"><h2 style="margin:0;font-size:24px;font-weight:600">My entries</h2></div>';
-  if(!ME.id)return h+'<p class="empty">Sign in with your Windows account to see your entries.</p>';
+  if(!ME.id)return h+'<p class="empty">Sign in to see your entries.</p>';
   h+='<p class="note" style="margin:0 0 6px">Entries you have submitted. An admin works out the cost and verifies each one.</p>';
   var back=regDocs.filter(function(d){return wfOf(d)==='info';}).length;
   if(back)h+='<p class="alert warn"><b>'+back+' of your entr'+(back===1?'y needs':'ies need')+' more information.</b> Open the entry and tap Edit, fix it, then submit again.</p>';
@@ -1236,7 +1236,7 @@ function renderDetail(){
   var sig=[APSEL,d.updated,wfOf(d),(d.log||[]).length,ME.id,d.value,adm,JSON.stringify(NAMES).length,JSON.stringify(M).length].join('|');
   if(sig===apSig)return;
   apSig=sig;
-  var w=wfOf(d),mine=isMe(d.by),canReview=adm&&!!ME.id&&!mine&&w==='pending';
+  var w=wfOf(d),mine=isMe(d.by),canReview=adm&&!!ME.id&&(!mine||ME.selfVerify)&&w==='pending';
   var logTxt={submit:'Submitted',reply:'Replied',info:'Sent back',verify:'Verified'};
   var h='<div class="res detail"><div class="dh"><h2>'+esc(d.name||'')+'</h2><span><span class="tag">'+esc(KIND[d.kind]||'')+'</span> <span class="tag">FY '+esc(d.fy||'')+'</span> '+wfTag(d)+'</span></div>';
   if(adm)h+=d.costed===false?'<p class="alert">Submitted without costs. The figures below use the current masters and are recorded when you verify.</p>':
@@ -1259,8 +1259,8 @@ function renderDetail(){
     if(adm&&d.state&&w==='verified')h+='<button type="button" class="btn primary" data-act="printit" data-id="'+esc(d._id)+'">Open for print</button>';
     if(d.state)h+='<button type="button" class="btn" data-act="copy" data-id="'+esc(d._id)+'">Use as a copy</button>';
     h+='</div>';
-    if(!ME.id)h+='<p class="note">Sign in with your Windows account to verify or edit entries.</p>';
-    else if(w==='pending'&&mine)h+='<p class="note">'+(adm?'Another admin':'An admin')+' needs to verify your entry.</p>';
+    if(!ME.id)h+='<p class="note">Sign in to verify or edit entries.</p>';
+    else if(w==='pending'&&mine&&!ME.selfVerify)h+='<p class="note">'+(adm?'Another admin':'An admin')+' needs to verify your entry.</p>';
   }
   h+='<div class="actions"><button type="button" class="lnk" data-act="close" data-id="">Close</button></div></div>';
   el.innerHTML=h;
@@ -1517,7 +1517,7 @@ function xlSummary(){
 }
 async function xlSubmit(list){
   if(DBSTATE!=='ready'){toast('The register is not available: '+DBERR);return;}
-  if(!ME.id){toast('Sign in with your Windows account to submit entries');return;}
+  if(!ME.id){toast('Sign in to submit entries');return;}
   var done=0,fail='';
   for(var k=0;k<list.length;k++){
     var u=UPL[list[k]];if(!u||!u.st||u.submitted)continue;

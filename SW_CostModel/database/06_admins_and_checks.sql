@@ -3,8 +3,10 @@
    06. First admins and a check that everything is in place
 
    Run after 01, 02 and 03. Safe to run again.
-   1. Fill in the admin list below (at least two people: a verification
-      needs an admin other than the person who submitted the entry).
+   1. The site has one shared login, CA_Admin, which is always treated as an
+      admin. This script registers it in dbo.SwAppUser (the site does this on
+      first use anyway). Add more rows only if the site is changed to use
+      Windows sign-in.
    2. Run the whole script. The last result sets are the checks.
    ================================================================== */
 
@@ -16,8 +18,7 @@ GO
 /* 1. Admins. UserLogin is DOMAIN\username exactly as Windows reports it. */
 DECLARE @Admins TABLE (UserLogin NVARCHAR(200) NOT NULL, DisplayName NVARCHAR(200) NOT NULL);
 INSERT @Admins (UserLogin, DisplayName) VALUES
-    (N'DOMAIN\admin1', N'First Admin'),
-    (N'DOMAIN\admin2', N'Second Admin');
+    (N'CA_Admin', N'CA Admin');
 
 MERGE dbo.SwAppUser AS t
 USING @Admins AS s ON t.UserLogin = s.UserLogin
@@ -27,7 +28,7 @@ GO
 
 /* 2. Checks */
 
--- a. Who is an admin (expect at least two rows)
+-- a. Who is an admin (expect CA_Admin)
 SELECT UserLogin, DisplayName, IsAdmin, FirstSeenAt, LastSeenAt FROM dbo.SwAppUser ORDER BY IsAdmin DESC, UserLogin;
 
 -- b. Masters are loaded (expect 5 levels, 8 value categories, rows in the others)

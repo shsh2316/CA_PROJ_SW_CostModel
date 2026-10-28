@@ -120,7 +120,8 @@ public class EstimatorApi : IHttpHandler
         {
             { "id", user.Login },
             { "name", user.DisplayName },
-            { "isAdmin", user.IsAdmin }
+            { "isAdmin", user.IsAdmin },
+            { "selfVerify", user.CanSelfVerify }
         };
     }
 

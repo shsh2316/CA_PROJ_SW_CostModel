@@ -5,7 +5,7 @@ using System.Web.UI;
 /// <summary>
 /// Code-behind for the estimator page (project_registry.aspx, formerly index.html).
 /// The page itself is drawn by assets/js/estimator.js, which talks to api/estimator.ashx.
-/// This class only looks up who is signed in (Windows authentication), through CurrentUser and dbClassSql,
+/// This class only looks up who is signed in (the shared login), through CurrentUser and dbClassSql,
 /// and puts the result on the body tag as data-* attributes.
 /// The page is always sent, even when the database cannot be reached: the script then reports the problem.
 /// </summary>

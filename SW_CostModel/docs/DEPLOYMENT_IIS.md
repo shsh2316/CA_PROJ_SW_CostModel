@@ -23,7 +23,6 @@ at the `sources\sxs` folder of the media).
 |---|---|
 | Web Server (IIS) > Static Content, Default Document | serves the page, scripts, styles and fonts |
 | Application Development > ASP.NET 4.x (4.5 or later), .NET Extensibility 4.x, ISAPI Extensions, ISAPI Filters | runs the pages (`.aspx`) and the API (`api\estimator.ashx`) |
-| Security > Windows Authentication | identifies who submits and verifies entries |
 | .NET Framework 4.5 or later | in-box on Windows Server 2012 R2 and later |
 
 PowerShell, run as administrator:
@@ -43,7 +42,7 @@ Open each script in SQL Server Management Studio as a sysadmin and run it, in or
 | `database\01_create_database_and_login.sql` | creates the database and gives the IIS application pool account read and write access. Set `@AppLogin` at the top first (see below). |
 | `database\02_create_tables.sql` | creates the tables, indexes and views |
 | `database\03_seed_master_data.sql` | loads the default rates and value creation categories |
-| `database\06_admins_and_checks.sql` | makes the first admins (edit the two example logins first) and shows checks: admins, master row counts, the pool account's rights, the register |
+| `database\06_admins_and_checks.sql` | registers the `CA_Admin` login as an admin and shows checks: admins, master row counts, the pool account's rights, the register |
 | `database\04_import_legacy_register_csv.sql` | optional, only to bring in a CSV exported from the earlier claude.ai version |
 | `database\05_import_projects_csv.sql` | optional, loads the one-sheet project template saved as CSV (see `docs\PROJECT_SHEET.md`) |
 
@@ -94,9 +93,9 @@ the `CCCConString` entry in the root `Web.config`.
    Leave **Maximum Worker Processes** at 1 (`dbClassSql` shares one database connection per process).
 4. IIS Manager > Sites > Add Website (or Add Application under an existing site):
    physical path = the folder from step 1, application pool = `CentralAutomationEstimator`.
-5. Select the site > **Authentication**: enable **Windows Authentication**, disable
-   **Anonymous Authentication**. These settings are locked at server level, which is why
-   they are not in `web.config`.
+5. Select the site > **Authentication**: leave **Anonymous Authentication** enabled and
+   **Windows Authentication** disabled. The sign-in is done by the site itself (`BasicAuthModule`):
+   the browser asks for a user name and password and the site checks them against `Web.config`.
 6. Give the application pool read access to the folder (normally already true through
    `IIS_IUSRS`): `icacls C:\inetpub\CentralAutomationEstimator /grant "IIS APPPOOL\CentralAutomationEstimator:(OI)(CI)RX"`
 
@@ -120,30 +119,37 @@ authentication to a local SQL Server:
 ## 5. Check it works
 
 1. Browse to the site from a client PC (`http://yourserver/` opens `project_registry.aspx`). The first
-   request takes 10 to 30 seconds while IIS compiles the code. The page should open without a sign-in prompt
-   (Edge and Chrome pass your Windows sign-in to intranet sites). If you are prompted, add
-   the site to the Local intranet zone (Internet Options > Security, or Group Policy).
+   request takes 10 to 30 seconds while IIS compiles the code. The browser asks you to sign in:
+   user name `CA_Admin` and the password you were given (see "Sign-in" below).
 2. Open **Approval**. It should say there are no verified projects yet, not
    "The register is not available".
 3. Open `http://yourserver/yoursite/api/estimator.ashx?action=init` on the server itself.
-   You should see JSON with your login under `me`. On the server, errors show in full here.
-4. Open `/project_report.aspx`. As an admin you see the register with cost columns and a
-   **Download CSV** button (empty at first: "No projects match"). As a non-admin you see only your own
-   entries, without costs.
-5. Make admins (script `06` does this for the first ones): people appear in `dbo.SwAppUser` the first time they open the page. Admins see
-   costs, masters, Excel upload and Print, and verify entries; everyone else registers projects
-   and value creation without seeing costs. Verification needs an admin other than the person
-   who submitted, so have at least two admins.
-   ```sql
-   UPDATE dbo.SwAppUser SET IsAdmin = 1 WHERE UserLogin = N'DOMAIN\username';
-   UPDATE dbo.SwAppUser SET DisplayName = N'Full Name' WHERE UserLogin = N'DOMAIN\username';
-   ```
+   You should see JSON with `CA_Admin` under `me` and `isAdmin` true. On the server, errors show in full here.
+4. Open `/project_report.aspx`. You see the register with cost columns and a
+   **Download CSV** button (empty at first: "No projects match").
+5. There is one login, so there are no other people or roles: `CA_Admin` sees costs, masters, Excel
+   upload and Print, and can verify entries, including ones it submitted itself
+   (`AllowSelfVerification` in `Web.config`).
+
+### Sign-in
+
+The login is one shared account checked by `BasicAuthModule` on every request (pages, API and files):
+
+- User name: `CA_Admin`. The password is not stored anywhere: `Web.config` holds only its SHA-256
+  (`BasicAuthPasswordSha256`).
+- To change the password, in PowerShell, then paste the result into `Web.config`:
+  ```powershell
+  $b=[Text.Encoding]::UTF8.GetBytes('NEW PASSWORD'); -join ([Security.Cryptography.SHA256]::Create().ComputeHash($b)|%{$_.ToString('x2')})
+  ```
+- Basic sign-in sends the password with every request in a form that is easy to read, so use **HTTPS** on
+  the server. A longer password than 8 characters is also advisable.
+- Wrong or missing `BasicAuthUser` / `BasicAuthPasswordSha256` in `Web.config` means nobody can sign in.
 
 ## 6. Before going live
 
 - [ ] **HTTPS**: bind a certificate to the site (IIS Manager > Bindings > Add > https) and redirect
-      http to https. Windows authentication sends no password, but the register holds costs.
-- [ ] **Two admins** in `dbo.SwAppUser` (script 06), neither of them the only person who submits.
+      http to https. Basic sign-in sends the password on every request, and the register holds costs.
+- [ ] **Password**: changed from the one you were first given, and kept by the people who need it.
 - [ ] **Masters** reviewed on the Masters page: the seeded rates, prices and value rates are assumptions.
 - [ ] **Database backups**: a full backup nightly and log backups if the recovery model is full, for example
       ```sql
@@ -157,13 +163,13 @@ authentication to a local SQL Server:
 
 ## Running locally in Visual Studio (IIS Express)
 
-1. Select the project in Solution Explorer, press **F4** (Properties window): set **Windows
-   Authentication = Enabled** and **Anonymous Authentication = Disabled**. Without this nobody is
-   signed in and the pages say "Sign in with your Windows account".
+1. Select the project in Solution Explorer, press **F4** (Properties window): set **Anonymous
+   Authentication = Enabled** and **Windows Authentication = Disabled**. (If Windows Authentication
+   stays on, IIS Express signs you in as your Windows user before the site's own login.)
 2. Set `CCCConString` in the root `Web.config` to your SQL Server and database.
 3. Run (F5). The site root forwards to `/SW_CostModel/web/project_registry.aspx` through `Default.aspx`
    (a 403.14 "directory browsing" error at `/` means `Default.aspx` is missing).
-4. Your Windows login must be in `dbo.SwAppUser` with `IsAdmin = 1` to see costs (script `06`).
+4. The browser asks for the site login: `CA_Admin` and its password.
 
 ## Troubleshooting
 
@@ -175,11 +181,10 @@ authentication to a local SQL Server:
 | `CS0433` "type exists in both" when running locally | rename the `App_Code` folder (for example `Code`) so ASP.NET does not compile it a second time; published output is not affected. |
 | Page loads but says "The connection string 'CCCConString' is missing or not valid" | the entry is missing or misspelt in `Web.config`. |
 | First page load is very slow, or a compile error appears once then goes | normal while IIS compiles; antivirus scanning `Temporary ASP.NET Files` can slow it. |
-| HTTP 401.2 | both Windows and Anonymous authentication are off. Enable Windows Authentication. |
+| HTTP 401.2, or no login prompt but a Windows sign-in | IIS has Anonymous off or Windows on. Enable Anonymous, disable Windows (step 3.5). |
+| The login prompt returns again and again | wrong password, or `BasicAuthUser` / `BasicAuthPasswordSha256` in `Web.config` do not match what you typed. |
 | Approval says "Cannot connect to SQL Server" | wrong server or database name in `CCCConString` in `Web.config`; SQL Server not accepting TCP connections or the firewall blocks port 1433; or the app pool account has no SQL login (the event log then shows "Login failed for user ..."; check `@AppLogin` in script 01 matches the pool identity and re-run it). |
-| Someone sees only Registration and My entries | they are not an admin: set `IsAdmin = 1` for them in `dbo.SwAppUser`, then they reload the page. |
 | "This browser cannot read Excel files" | use a current Edge or Chrome. Files must be `.xlsx` (Excel Workbook), not `.xls`. |
-| "Sign in with your Windows account" when submitting | Anonymous Authentication is still on, or Windows Authentication is off. |
 | Any other server error | details are in Event Viewer > Windows Logs > Application (source ASP.NET 4.0.30319.0). |
 
 ## Browsers

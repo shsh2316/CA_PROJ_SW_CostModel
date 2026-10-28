@@ -35,9 +35,9 @@ web/                                       the site source: build and publish it
 
 1. Run `database\01` to `03` in SSMS (set `@AppLogin` in 01 first).
 2. Copy the contents of `web` to the server, create an IIS site on a .NET 4 application pool,
-   enable Windows Authentication and disable Anonymous.
+   leave Anonymous enabled and Windows Authentication off (the site has its own login).
 3. Edit `CCCConString` in the project's root `Web.config` if SQL Server is not local.
-4. Open the page once, then make yourself an admin: `UPDATE dbo.SwAppUser SET IsAdmin = 1 WHERE UserLogin = N'DOMAIN\you';`
+4. Open the site and sign in as `CA_Admin` (the password is set in `Web.config`, see docs/DEPLOYMENT_IIS.md "Sign-in").
 
 Full steps and troubleshooting: [docs/DEPLOYMENT_IIS.md](docs/DEPLOYMENT_IIS.md).
 
@@ -46,7 +46,7 @@ Full steps and troubleshooting: [docs/DEPLOYMENT_IIS.md](docs/DEPLOYMENT_IIS.md)
 - The page calls `api/estimator.ashx`. The API reads the masters from the master tables,
   stores each submitted estimate in `dbo.SwProjectRegister` (with the full estimate as JSON,
   so it can be reopened and printed later), and the approval history in `dbo.SwProjectLog`.
-- People are identified by their Windows login.
+- There is one shared login (`CA_Admin`, HTTP Basic, checked by `BasicAuthModule`); that account is the admin.
 - If the API cannot be reached (for example the page is opened as a file), the page still
   works as a calculator: masters and the current estimate are kept in that browser.
 
