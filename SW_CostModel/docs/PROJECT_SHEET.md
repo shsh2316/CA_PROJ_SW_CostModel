@@ -120,3 +120,7 @@ derived figures in `..._projects.csv` and every slide number in `..._data.json`.
 `node derive_ca_projects_deck.js "CA_Projects_List_As_of_July_2026.xlsx" <output folder>`. Projects: dates overlapping 1 Nov 2025 to 30 Nov 2026, plus every In Progress project.
 Costs and the benchmark saving are derived; before/after figures are quoted from the sheet's text (checked by the script); benefit themes are a keyword reading of the Key Benefit text.
 
+`docs\CA_Benefits_Nov2025-Oct2026_HOD.pdf` is the 2-page benefits summary for the HOD (money, FTE, TAT, productivity; every figure marked STATED or DERIVED), made with
+`node derive_ca_projects_deck.js <workbook> <folder> 2026-10-28` (the third argument is the end of the period) and
+`node build_hod_benefits_pdf.js <folder>\deck_data.json <output.pdf> "28 October 2026"`. 1 FTE = 2,740 hours a year, a man-day 8 hours, a day of TAT 24 hours.
+

@@ -2,10 +2,10 @@
    Derives the figures for the "CA projects, Nov 2025 to Nov 2026" slides from the Central Automation project list workbook.
 
    Usage (Node 18+ with Playwright installed; Chromium is used headless):
-     node derive_ca_projects_deck.js "CA_Projects_List_As_of_July_2026.xlsx" <output folder>
+     node derive_ca_projects_deck.js "CA_Projects_List_As_of_July_2026.xlsx" <output folder> [period end, yyyy-mm-dd; default 2026-11-30]
    Writes <output folder>\deck_data.json (every number on the slides) and <output folder>\projects.csv (one row per project in scope).
 
-   Which projects: those whose Start / End dates overlap 1 Nov 2025 to 30 Nov 2026, plus every project whose status is In Progress
+   Which projects: those whose Start / End dates overlap 1 Nov 2025 to the period end (30 Nov 2026 unless given), plus every project whose status is In Progress
    (dated outside that period, or with no dates). "Failed" projects are left out.
 
    Cost: NOT re-implemented here. As in generate_ca_projects_import.js the real estimator page (web\project_registry.aspx and
@@ -26,13 +26,15 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-const [xlsxPath, outDir] = process.argv.slice(2);
+const [xlsxPath, outDir, periodEnd] = process.argv.slice(2);
 if (!xlsxPath || !outDir) { console.error('Usage: node derive_ca_projects_deck.js <workbook.xlsx> <output folder>'); process.exit(2); }
 
 const WEB = path.resolve(__dirname, '..', '..', 'web');
 const AS_OF = new Date(Date.UTC(2026, 6, 31));
 const NEXT_YEAR_END = new Date(Date.UTC(2027, 2, 31));
-const W0 = new Date(Date.UTC(2025, 10, 1)), W1 = new Date(Date.UTC(2026, 10, 30));   // the period
+const W0 = new Date(Date.UTC(2025, 10, 1));
+const W1 = periodEnd ? new Date(periodEnd + 'T00:00:00Z') : new Date(Date.UTC(2026, 10, 30));   // the period: 1 Nov 2025 to this date
+if (isNaN(W1.getTime())) { console.error('Period end must be yyyy-mm-dd'); process.exit(2); }
 const DEFAULT_DAYS = 90;
 const DEFAULT_FY = '2026-27';
 
@@ -117,18 +119,27 @@ function toProjects(rows) {
 /* ---------- figures stated in the sheet (verified against the workbook text; checked project by project) ---------- */
 /* sr: the project's Sr. No. quote: text that must appear in the project's Key Benefit / Considerations / Description. */
 const pctLess = (before, after) => Math.round((1 - after / before) * 1000) / 10;
+/* kind: tat = turnaround time (elapsed), effort = people's working time, cost, output.
+   beforeMin / afterMin: minutes, for time figures (a day is taken as 24 hours for turnaround, 8 hours for man-days); the lower figure of a range is used (conservative). */
+const HOURS_PER_FTE = 2740;   // 1 FTE = 2,740 hours a year (the figure the department uses)
+const HOURS_PER_MAN_DAY = 8;
 const STATED = [
-  { sr: 5,   what: 'Quality KPI capture (QRM)',            kind: 'time',   before: '3 days',          after: '1 hour',         quote: 'TAT reduced from 3 days to 1 hours' },
-  { sr: 23,  what: 'Manpower distribution (CRMS)',          kind: 'time',   before: '5 hours',         after: '1 hour',         less: pctLess(5, 1),     quote: 'TAT reduced from 5 hours to 1 hour for manpower distribution' },
-  { sr: 26,  what: 'Non-prime slab identification',         kind: 'effort', before: '7 man-days',      after: '1 man-day',      less: pctLess(7, 1),     quote: 'Earlier 7 man-days were being used' },
-  { sr: 106, what: 'Non-prime slab identification (phase 2)', kind: 'effort', before: '7 man-days',    after: '1 man-day',      less: pctLess(7, 1),     quote: 'Earlier 7 man-days were being used' },
-  { sr: 27,  what: 'Report preparation',                    kind: 'effort', before: '4-5 hours',       after: '1-2 minutes',    quote: 'report preparation time has been reduced from 4-5 hours to 1-2 minutes' },
-  { sr: 78,  what: 'Coil tracing turnaround',               kind: 'time',   before: '160 minutes',     after: '10 seconds',     less: pctLess(160 * 60, 10), quote: 'Reduced coil tracing TAT from 160 minutes to 10 seconds' },
-  { sr: 116, what: 'SCM commitment report turnaround',      kind: 'time',   before: '4 days',          after: '3 minutes',      quote: 'TAT reduced for SCM team from 4 days to 3 minutes' },
+  { sr: 5,   what: 'Quality KPI capture (QRM)',            kind: 'tat',    before: '3 days',          after: '1 hour',         beforeMin: 3 * 24 * 60, afterMin: 60,   quote: 'TAT reduced from 3 days to 1 hours' },
+  { sr: 23,  what: 'Manpower distribution (CRMS)',          kind: 'tat',    before: '5 hours',         after: '1 hour',         beforeMin: 300,         afterMin: 60,   quote: 'TAT reduced from 5 hours to 1 hour for manpower distribution' },
+  { sr: 26,  what: 'Non-prime slab identification',         kind: 'effort', before: '7 man-days',      after: '1 man-day',      savedHours: 6 * HOURS_PER_MAN_DAY, beforePct: 7, afterPct: 1, quote: 'Earlier 7 man-days were being used' },
+  { sr: 106, what: 'Non-prime slab identification (phase 2)', kind: 'effort', before: '7 man-days',    after: '1 man-day',      savedHours: 6 * HOURS_PER_MAN_DAY, beforePct: 7, afterPct: 1, quote: 'Earlier 7 man-days were being used' },
+  { sr: 27,  what: 'Report preparation (Byproduct)',        kind: 'effort', before: '4-5 hours',       after: '1-2 minutes',    beforeMin: 4 * 60,      afterMin: 2,    savedHours: (4 * 60 - 2) / 60, quote: 'report preparation time has been reduced from 4-5 hours to 1-2 minutes' },
+  { sr: 78,  what: 'Coil tracing turnaround',               kind: 'tat',    before: '160 minutes',     after: '10 seconds',     beforeMin: 160,         afterMin: 10 / 60, quote: 'Reduced coil tracing TAT from 160 minutes to 10 seconds' },
+  { sr: 116, what: 'SCM commitment report turnaround',      kind: 'tat',    before: '4 days',          after: '3 minutes',      beforeMin: 4 * 24 * 60, afterMin: 3,    quote: 'TAT reduced for SCM team from 4 days to 3 minutes' },
   { sr: 109, what: 'Demurrage',                             kind: 'cost',   before: '',                after: '30% lower',      quote: 'Reduced Demauragge by 30%' },
   { sr: 66,  what: 'Blast furnace production (raw material model)', kind: 'output', before: '',       after: '+70 tons/day',   quote: '70 tons/day increment in the BF production' },
   { sr: 66,  what: 'Cost of production, Hazira (raw material model)', kind: 'cost', before: '',     after: 'Rs 615 per ton lower', quote: 'reduction in cost of production by Rs 615/ Ton' }
 ];
+STATED.forEach((x) => {
+  if (x.beforeMin != null) x.less = pctLess(x.beforeMin, x.afterMin);
+  else if (x.beforePct != null) x.less = pctLess(x.beforePct, x.afterPct);
+  if (x.savedHours != null) x.perFteYear = Math.round(HOURS_PER_FTE / x.savedHours);   // occurrences a year that add up to 1 FTE
+});
 
 (async () => {
   fs.mkdirSync(outDir, { recursive: true });
@@ -210,7 +221,7 @@ const STATED = [
     if (!p) throw new Error('Stated figure for Sr. No. ' + s.sr + ' is not for a project in scope');
     const hay = norm([p.benefit, p.cons, p.desc].join(' ')).toLowerCase();
     if (!hay.includes(norm(s.quote).toLowerCase())) throw new Error('The text "' + s.quote + '" is not in the sheet for Sr. No. ' + s.sr);
-    return Object.assign({ name: p.name }, s);
+    return Object.assign({ name: p.name, live: !p.inProgress, statusText: p.statusText }, s);
   });
 
   /* ---------- totals ---------- */
@@ -228,6 +239,8 @@ const STATED = [
       leftByReason: Object.entries(left.reduce((m, p) => { const k = leftWhy(p); m[k] = (m[k] || 0) + 1; return m; }, {})) },
     total: tot(scope), byGroup: by((p) => p.group), byKpi: by((p) => p.kpi), byType: by((p) => p.work), byStatus: by((p) => (p.inProgress ? 'In progress' : 'In use')),
     withoutAnyBenefitText: scope.filter((p) => !p.themes.length).length, withNoTextAtAll: scope.filter((p) => !norm(p.benefit) && !norm(p.desc)).length, themes: themeCount, stated, calGainedInScope: scope.filter((p) => p.gained > 0).map((p) => ({ sr: p.sr, name: p.name, gained: p.gained })),
+    hoursPerFte: HOURS_PER_FTE, byStatusList: ['In use', 'In progress'].map((k) => Object.assign({ key: k }, tot(scope.filter((p) => (p.inProgress ? 'In progress' : 'In use') === k)))),
+    topLive: scope.filter((p) => !p.inProgress).slice().sort((a, b) => (b.c.tcoB - b.c.tco) - (a.c.tcoB - a.c.tco)).slice(0, 6).map((p) => ({ sr: p.sr, name: p.name, kpi: p.kpi, saving: p.c.tcoB - p.c.tco, tco: p.c.tco, tcoB: p.c.tcoB, benefit: norm(p.benefit) || norm(p.desc) })),
     topSaving: scope.slice().sort((a, b) => (b.c.tcoB - b.c.tco) - (a.c.tcoB - a.c.tco)).slice(0, 8).map((p) => ({ sr: p.sr, name: p.name, saving: p.c.tcoB - p.c.tco, tco: p.c.tco, tcoB: p.c.tcoB })),
     candidates: scope.filter((p) => p.candidates.length).map((p) => ({ sr: p.sr, name: p.name, candidates: p.candidates }))
   };
