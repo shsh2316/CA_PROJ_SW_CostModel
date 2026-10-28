@@ -30,7 +30,7 @@ public partial class ProjectReportPage : Page
         new[] { "web", "Web application" }, new[] { "desktop", "Windows desktop application" }, new[] { "mobile", "Mobile app" },
         new[] { "interface", "Interface / integration" }, new[] { "dash", "Dashboard / reporting" }, new[] { "ai", "AI / vision system" }
     };
-    static readonly string[][] LogActions = { new[] { "submit", "Submitted" }, new[] { "reply", "Replied" }, new[] { "info", "Asked for information" }, new[] { "verify", "Verified" } };
+    static readonly string[][] LogActions = { new[] { "submit", "Submitted" }, new[] { "reply", "Replied" }, new[] { "info", "Asked for information" }, new[] { "verify", "Verified" }, new[] { "recalc", "Recalculated" } };
 
     enum Fmt { Text, Lookup, Person, Money, Number, Date }
 

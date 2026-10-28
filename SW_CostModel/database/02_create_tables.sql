@@ -277,7 +277,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SwProjectRegister_Entr
     CREATE INDEX IX_SwProjectRegister_EntryKey ON dbo.SwProjectRegister (EntryKey);
 GO
 
-/* Approval history: submit, reply, info (sent back), verify */
+/* Approval history: submit, reply, info (sent back), verify, recalc (recalculated with the current masters) */
 IF OBJECT_ID('dbo.SwProjectLog') IS NULL
 CREATE TABLE dbo.SwProjectLog
 (
@@ -287,8 +287,15 @@ CREATE TABLE dbo.SwProjectLog
     ActionBy        NVARCHAR(200)  NULL,
     ActionAt        DATETIME2(0)   NOT NULL CONSTRAINT DF_SwProjectLog_At DEFAULT SYSUTCDATETIME(),
     Comment         NVARCHAR(2000) NULL,
-    CONSTRAINT CK_SwProjectLog_Action CHECK (Action IN ('submit','reply','info','verify'))
+    CONSTRAINT CK_SwProjectLog_Action CHECK (Action IN ('submit','reply','info','verify','recalc'))
 );
+GO
+/* Upgrade of a database made before "recalc" existed: widen the check (safe to run again; nothing happens when it is already wide enough) */
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_SwProjectLog_Action' AND parent_object_id = OBJECT_ID('dbo.SwProjectLog') AND definition NOT LIKE '%recalc%')
+BEGIN
+    ALTER TABLE dbo.SwProjectLog DROP CONSTRAINT CK_SwProjectLog_Action;
+    ALTER TABLE dbo.SwProjectLog ADD CONSTRAINT CK_SwProjectLog_Action CHECK (Action IN ('submit','reply','info','verify','recalc'));
+END
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SwProjectLog_Register' AND object_id = OBJECT_ID('dbo.SwProjectLog'))
     CREATE INDEX IX_SwProjectLog_Register ON dbo.SwProjectLog (RegisterId, LogId);

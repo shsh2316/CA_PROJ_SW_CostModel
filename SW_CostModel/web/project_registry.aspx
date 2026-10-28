@@ -27,7 +27,7 @@
 
   <section class="page" id="p-master">
     <h2 class="pt">Masters</h2>
-    <p class="lead">Rates and prices used by every new estimate. Each estimate keeps a copy of the rates it was made with, so changing a master never changes an estimate already submitted.</p>
+    <p class="lead">Rates and prices used by every new estimate. Each estimate keeps a copy of the rates it was made with, so changing a master does not change an estimate already registered. To apply new rates to existing entries, an admin uses <b>Recalculate with the current masters</b> on the Approval page; on Registration, <b>Use the current masters</b> does it for the estimate on screen.</p>
     <div class="mtabs" id="mtabs" role="tablist"></div>
     <div id="mbody"></div>
   </section>

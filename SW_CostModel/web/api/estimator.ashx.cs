@@ -12,6 +12,7 @@ using System.Web.Management;
 ///   POST api/estimator.ashx?action=saveMaster     { key, doc }                                   admins only
 ///   POST api/estimator.ashx?action=submitProject  { id?, entry, reply? }
 ///   POST api/estimator.ashx?action=verifyProject  { id, updated, costing, adjustedValue?, comment? } admins only
+///   POST api/estimator.ashx?action=recalcProject { id, updated, costing }                        admins only: new figures and estimate from the current masters
 ///   POST api/estimator.ashx?action=sendBack       { id, updated, comment }                       admins only
 /// People who are not admins never receive prices, rates or cost figures.
 ///   POST api/estimator.ashx?action=deleteProject  { id }
@@ -89,6 +90,9 @@ public class EstimatorApi : IHttpHandler
                 return Ok(ProjectRepository.Submit(user, body));
             case "verifyProject:POST":
                 ProjectRepository.Verify(user, body);
+                return Ok(null);
+            case "recalcProject:POST":
+                ProjectRepository.Recalc(user, body);
                 return Ok(null);
             case "sendBack:POST":
                 ProjectRepository.SendBack(user, body);

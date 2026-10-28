@@ -64,6 +64,14 @@ Everyone who signs in is an admin: costs, rates, loadings, ROI and payback; Appr
 recorded as who submitted and approved. The server still withholds costs from a non-admin account, which matters if the site is later
 changed to per-user sign-in.
 
+## Changing the masters
+
+An estimate keeps a copy of the rates it was made with, so saving a master only affects new estimates. An admin applies new rates to existing entries with
+**Approval > Recalculate with the current masters** (preview first; one entry or all entries awaiting verification and/or verified, per financial year) and, for the
+estimate on screen, **Registration > Use the current masters**. Team, sizing, quantities, benefits, the charged amount and the quotation details are kept; rates, prices,
+loadings and AMC % come from the masters. Every change is written to the entry's history. Entries sent back to the submitter, verified entries whose value was adjusted, and
+entries without a saved estimate are not touched. Details: `docs/DEPLOYMENT_IIS.md`.
+
 ## Value creation
 
 The Value creation step records what a project gives back: man-hours saved, downtime

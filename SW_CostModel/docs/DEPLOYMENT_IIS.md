@@ -207,8 +207,19 @@ Current Edge, Chrome or Firefox 126 or later. Internet Explorer is not supported
 1. Back up the database and the current site folder.
 2. Publish the new build and copy it over the old files, but keep the server's own `Web.config` (the connection string and the password hash):
    merge the file if the new version changed other settings.
-3. Run any new database scripts.
+3. Run any new database scripts. **Recalculate with the current masters** (below) needs `02_create_tables.sql` run once more on an existing database:
+   it only widens the history check to allow the `recalc` entry and is safe to repeat. Without it, recalculating an entry fails with a constraint error.
 4. Browse to the site once (the first request is slow while IIS compiles the page markup). Browsers pick up the new files on the next
    visit (the site sends `Cache-Control: no-cache` for pages, the API and static files).
+
+### After changing the Masters
+
+Each estimate keeps the rates it was made with, so saving a master does not change entries that already exist. To apply the new rates:
+- **Approval > Recalculate with the current masters** (admins): tick *Awaiting verification* and/or *Verified*, optionally pick a financial year in the filter above,
+  **Preview the changes** (old and new cost per entry, and what is left alone), then **Recalculate** (tap twice). One entry: open it, **Recalculate with the current masters**.
+- **Registration > Use the current masters** does it for the estimate on screen (a draft, or an entry being edited).
+- Left alone: entries sent back to their submitter, verified entries whose value the verifier adjusted, entries without a saved estimate (for example from script `04`).
+- Kept: team, sizing, quantities, benefits and their rates (unless the checkbox is ticked), charged amount, quotation details. Reset: rates, prices, loadings, AMC %, GST of the estimate.
+- Each recalculation is logged on the entry ("Recalculated with the current masters: Central Automation cost X to Y; benchmark A to B") and changes the report, CSV, PDFs and totals at once. The old figures are only in that history line.
 
 **Rollback**: put the old site folder back (and, if a script changed the database, restore the backup).

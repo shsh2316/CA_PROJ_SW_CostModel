@@ -562,7 +562,7 @@ function buildWizard(){
     '<div id="revRes"></div>'+
     '<div class="blk" data-need="adv"><h3 class="sub">Loadings and tax</h3>'+fieldsHTML(P_ADV)+'</div>'+
     '<h3 class="sub">Submit</h3>'+fieldsHTML(P_SUBMIT)+'<div id="editBanner"></div>'+
-    '<div class="actions"><button type="button" class="btn primary" id="saveReg">Submit for verification</button><button type="button" class="btn" id="copySum">Copy summary</button><button type="button" class="btn" id="resetDraft">Start a new estimate</button></div>'+
+    '<div class="actions"><button type="button" class="btn primary" id="saveReg">Submit for verification</button><button type="button" class="btn" id="copySum">Copy summary</button><button type="button" class="btn" id="resetDraft">Start a new estimate</button><button type="button" class="btn" id="useMasters">Use the current masters</button></div>'+
     '<p class="note">Anyone can submit. One verification by an admin (not the person who submitted) makes the entry final. Submitting again for the same project, year and record type updates your own entry until it is verified.</p></div>';
   $('#wiz').innerHTML=h;
 }
@@ -863,6 +863,8 @@ function onChange(e){
   else if(rf.r==='pv'){if(PVID==='draft')saveDraft();paintPrint(true);}
 }
 if(!LIB)document.addEventListener('input',onChange);
+/* the open / closed state of the recalculation panel survives a redraw of the page */
+if(!LIB)document.addEventListener('toggle',function(e){if(e.target&&e.target.id==='rcBox')RC.open=e.target.open;},true);
 if(!LIB)document.addEventListener('change',function(e){
   var t=e.target;
   if(t.id==='catAdd'){
@@ -872,6 +874,10 @@ if(!LIB)document.addEventListener('change',function(e){
   }
   if(t.id==='regFY'){regFY=t.value;renderAppr();return;}
   if(t.id==='regView'){regView=t.value;renderAppr();return;}
+  if(t.id==='rcPend'||t.id==='rcVer'||t.id==='rcBen'){
+    if(t.id==='rcPend')RC.pend=t.checked;else if(t.id==='rcVer')RC.ver=t.checked;else{RC.benefits=t.checked;apSig='';renderDetail();}
+    RC.plan=null;RC.done=null;renderAppr();return;
+  }
   if(t.id==='pvSel'){selectPV(t.value);return;}
   if(t.dataset&&t.dataset.path&&t.tagName==='SELECT')onChange(e);
 });
@@ -985,7 +991,7 @@ function paintMasterSave(){
 async function saveMaster(key){
   var doc=clone(M[key]);
   if(DBSTATE==='ready'){
-    try{await api('saveMaster',{key:key,doc:doc});MDIRTY[key]=false;paintMasterSave();toast('Master saved');onMasterChange(true);}
+    try{await api('saveMaster',{key:key,doc:doc});MDIRTY[key]=false;paintMasterSave();toast('Master saved. Existing estimates keep their rates: recalculate them on Approval');onMasterChange(true);}
     catch(e){toast(e.message||'Could not save');}
   }else{
     doc.updated=new Date().toISOString();
@@ -996,7 +1002,7 @@ async function saveMaster(key){
 function onMasterChange(force){
   var sig=JSON.stringify(M);
   if(!force&&sig===masterSig)return;
-  masterSig=sig;
+  masterSig=sig;if(typeof RC!=='undefined'&&RC){RC.plan=null;RC.done=null;}
   if(!S.dirty&&!editingId){S=newEstimate();}
   buildWizard();
   if(PAGE==='master'&&!MDIRTY[MTAB])renderMaster();
@@ -1158,6 +1164,101 @@ async function sendBack(id){
   finally{BUSY=false;}
   loadRegister();
 }
+/* ================= recalculate with the current masters (admins) =================
+   An estimate keeps the rates it was made with. Recalculating copies the current master rates, prices and loadings into it (applyRates);
+   the quotation details, team, sizing, quantities, benefits and the charged amount stay. Costs exist only in this page, so the new figures
+   are worked out here and sent to the server (recalcProject), which records them and writes the old and new cost to the history. */
+var RC={pend:true,ver:true,benefits:false,open:false,plan:null,done:null};
+function recalcState(st,withBenefits){
+  var q=clone(st.q);
+  applyRates(st);
+  st.q=q;
+  if(withBenefits)st.value.items.forEach(function(it){
+    var c=M.val.cats.filter(function(x){return x.id===it.cat;})[0];
+    if(c&&it.unit===c.unit)it.rate=+c.rate||0;
+  });
+  return st;
+}
+/* What recalculating one register entry would do: {d, skip} or {d, st, f, oldV, newV, oldB, newB, changed} */
+function recalcPlan(d){
+  if(!d.state)return {d:d,skip:'No saved estimate'};
+  if(wfOf(d)==='info')return {d:d,skip:'Sent back to the submitter'};
+  if(d.valueOriginal)return {d:d,skip:'Value adjusted by the verifier'};
+  var st=recalcState(hydrate(d.state),RC.benefits),f=figuresOf(st,calc2(st)),r=Math.round;
+  var oldV=r(+d.value||0),oldB=r(valB(d));
+  var changed=f.value!==oldV||f.valueB!==oldB||f.oneTime!==r(+d.oneTime||0)||f.yearly!==r(+d.yearly||0)||f.oneTimeB!==r(+d.oneTimeB||0)||f.yearlyB!==r(+d.yearlyB||0);
+  return {d:d,st:st,f:f,oldV:oldV,newV:f.value,oldB:oldB,newB:f.valueB,changed:changed};
+}
+function postRecalc(p){return api('recalcProject',{id:p.d._id,updated:p.d.updated||'',costing:Object.assign({},p.f,{state:savedState(p.st)})});}
+async function recalcEntry(id){
+  var d=findReg(id);
+  if(BUSY||DBSTATE!=='ready'||!d)return;
+  if(!isAdmin()){toast('Only admins can recalculate entries');return;}
+  var p=recalcPlan(d);
+  if(p.skip){toast('Not recalculated: '+p.skip.toLowerCase());return;}
+  if(!p.changed){toast('Already uses the current masters');return;}
+  BUSY=true;
+  try{await postRecalc(p);toast('Recalculated: '+inr(p.oldV)+' to '+inr(p.newV));}
+  catch(e){toast(e.message||'Could not recalculate');}
+  finally{BUSY=false;}
+  loadRegister();
+}
+function rcInScope(d){
+  var w=wfOf(d);
+  return (regFY==='all'||d.fy===regFY)&&((w==='pending'&&RC.pend)||(w==='verified'&&RC.ver));
+}
+function rcPreview(){
+  RC.done=null;
+  RC.plan=regDocs.filter(rcInScope).map(recalcPlan);
+}
+async function rcApply(){
+  if(BUSY||!RC.plan)return;
+  var todo=RC.plan.filter(function(p){return p.changed;}),ok=0,fails=[];
+  if(!todo.length)return;
+  BUSY=true;renderAppr();
+  for(var i=0;i<todo.length;i++){
+    var m=$('#rcMsg');if(m)m.textContent='Recalculating '+(i+1)+' of '+todo.length+'…';
+    try{await postRecalc(todo[i]);ok++;}
+    catch(e){fails.push({name:todo[i].d.name,fy:todo[i].d.fy,why:(e&&e.message)||'The server did not accept it.'});}
+  }
+  BUSY=false;RC.plan=null;RC.done={ok:ok,fails:fails};
+  renderAppr();loadRegister();
+}
+function rcPanel(){
+  var scope=regFY==='all'?'all financial years':'FY '+regFY+' (change the year filter above)';
+  var h='<details class="rc" id="rcBox"'+(RC.open?' open':'')+'><summary>Recalculate with the current masters</summary>'+
+    '<p class="note" style="margin:6px 0">An estimate keeps the rates it was made with, so a change on the Masters page does not reach entries already costed. Here the current master rates, prices and loadings are applied again: '+
+    'the team, sizing, quantities, benefits, charged amount and quotation details stay. Entries sent back to their submitter, and verified entries whose value the verifier adjusted, are left alone. Every change is written to the entry\'s history.</p>'+
+    '<div class="ctl"><label class="chk"><input type="checkbox" id="rcPend"'+(RC.pend?' checked':'')+'> Awaiting verification</label>'+
+    '<label class="chk"><input type="checkbox" id="rcVer"'+(RC.ver?' checked':'')+'> Verified</label>'+
+    '<label class="chk"><input type="checkbox" id="rcBen"'+(RC.benefits?' checked':'')+'> Also reset benefit rates to the Value creation master</label></div>'+
+    '<p class="note" style="margin:6px 0">Applies to '+esc(scope)+'.</p>'+
+    '<div class="actions" style="margin-top:6px"><button type="button" class="btn" id="rcPreview"'+(BUSY?' disabled':'')+'>Preview the changes</button></div>'+
+    '<p id="rcMsg" class="note" role="status"></p>';
+  if(RC.done){
+    h+='<p class="alert'+(RC.done.fails.length?' warn':'')+'"><b>'+RC.done.ok+' entr'+(RC.done.ok===1?'y':'ies')+' recalculated'+(RC.done.fails.length?', '+RC.done.fails.length+' not':'')+'.</b>'+
+      RC.done.fails.slice(0,10).map(function(f){return '<br>'+esc(f.name)+' (FY '+esc(f.fy)+'): '+esc(f.why);}).join('')+(RC.done.fails.length>10?'<br>and '+(RC.done.fails.length-10)+' more':'')+'</p>';
+  }
+  if(RC.plan){
+    var ch=RC.plan.filter(function(p){return p.changed;}),skip=RC.plan.filter(function(p){return p.skip;}),same=RC.plan.length-ch.length-skip.length;
+    var reasons={};skip.forEach(function(p){reasons[p.skip]=(reasons[p.skip]||0)+1;});
+    var sk=Object.keys(reasons).map(function(k){return reasons[k]+' '+k.toLowerCase();});
+    h+='<p class="note" style="margin:6px 0"><b>'+ch.length+'</b> to change, '+same+' already up to date'+(skip.length?', '+skip.length+' left alone ('+esc(sk.join('; '))+')':'')+'.</p>';
+    if(ch.length){
+      ch.sort(function(a,b){return Math.abs(b.newV-b.oldV)-Math.abs(a.newV-a.oldV);});
+      var t0=0,t1=0,b0=0,b1=0,nv=0;
+      ch.forEach(function(p){t0+=p.oldV;t1+=p.newV;b0+=p.oldB;b1+=p.newB;if(wfOf(p.d)==='verified')nv++;});
+      h+='<div class="tw"><table class="dual"><thead><tr><th>Project</th><th>Year</th><th>State</th><th class="num">CA cost now</th><th class="num">CA cost recalculated</th><th class="num">Difference</th><th class="num">Benchmark now</th><th class="num">Benchmark recalculated</th></tr></thead><tbody>'+
+        ch.slice(0,200).map(function(p){var dv=p.newV-p.oldV;return '<tr><td>'+esc(p.d.name||'')+'</td><td>'+esc(p.d.fy||'')+'</td><td>'+esc(WF[wfOf(p.d)]||'')+'</td><td class="num">'+inr(p.oldV)+'</td><td class="num"><b>'+inr(p.newV)+'</b></td><td class="num '+(dv>0?'neg':'sv')+'">'+(dv>0?'+':'')+inr(dv).replace('₹-','-₹')+'</td><td class="num">'+inr(p.oldB)+'</td><td class="num">'+inr(p.newB)+'</td></tr>';}).join('')+
+        (ch.length>200?'<tr><td colspan="8">and '+(ch.length-200)+' more entries (all are recalculated)</td></tr>':'')+
+        '<tr class="tot"><td colspan="3">Total of '+ch.length+' entr'+(ch.length===1?'y':'ies')+'</td><td class="num">'+inr(t0)+'</td><td class="num">'+inr(t1)+'</td><td class="num">'+(t1-t0>0?'+':'')+inr(t1-t0).replace('₹-','-₹')+'</td><td class="num">'+inr(b0)+'</td><td class="num">'+inr(b1)+'</td></tr></tbody></table></div>'+
+        '<div class="actions"><button type="button" class="btn primary" id="rcApply"'+(BUSY?' disabled':'')+'>Recalculate these '+ch.length+' entr'+(ch.length===1?'y':'ies')+'</button></div>'+
+        (nv?'<p class="note">'+nv+' of them '+(nv===1?'is':'are')+' verified: their recorded cost and the reports change. Tap the button twice to confirm.</p>':'<p class="note">Tap the button twice to confirm.</p>');
+    }
+  }
+  return h+'</details>';
+}
+
 function editEntry(id){
   var d=findReg(id);
   if(!d||!d.state){toast('No saved estimate in this entry');return;}
@@ -1249,6 +1350,7 @@ function renderAppr(){
        '<select id="regView" aria-label="Show entries">'+views.map(function(v){return '<option value="'+v[0]+'"'+(v[0]===regView?' selected':'')+'>'+v[1]+'</option>';}).join('')+'</select>'+
        '<button type="button" class="btn" id="regCsv"'+(ver.length?'':' disabled')+'>Export verified (CSV)</button></div></div>';
     h+='<p class="note" style="margin:0 0 6px">Totals count verified entries only. Anyone can submit; one verification by an admin who did not submit it makes an entry final.</p>';
+    if(isAdmin()&&ME.id)h+=rcPanel();
     var back=ME.id?regDocs.filter(function(d){return wfOf(d)==='info'&&isMe(d.by);}).length:0;
     var wait=ME.id?regDocs.filter(function(d){return wfOf(d)==='pending'&&!isMe(d.by);}).length:0;
     if(back)h+='<p class="alert warn"><b>'+back+' of your entr'+(back===1?'y needs':'ies need')+' more information.</b> Open the entry and tap Edit, fix it, then submit again.</p>';
@@ -1296,15 +1398,19 @@ function renderDetail(){
   var d=APSEL?findReg(APSEL):null;
   if(!d){el.innerHTML='';apSig='';return;}
   var adm=isAdmin();
-  var sig=[APSEL,d.updated,wfOf(d),(d.log||[]).length,ME.id,d.value,adm,JSON.stringify(NAMES).length,JSON.stringify(M).length].join('|');
+  var sig=[APSEL,d.updated,wfOf(d),(d.log||[]).length,ME.id,d.value,adm,JSON.stringify(NAMES).length,JSON.stringify(M).length,RC.benefits].join('|');
   if(sig===apSig)return;
   apSig=sig;
   var w=wfOf(d),mine=isMe(d.by),canReview=adm&&!!ME.id&&(!mine||ME.selfVerify)&&w==='pending';
-  var logTxt={submit:'Submitted',reply:'Replied',info:'Sent back',verify:'Verified'};
+  var logTxt={submit:'Submitted',reply:'Replied',info:'Sent back',verify:'Verified',recalc:'Recalculated'};
   var h='<div class="res detail"><div class="dh"><h2>'+esc(d.name||'')+'</h2><span><span class="tag">'+esc(KIND[d.kind]||'')+'</span> <span class="tag">FY '+esc(d.fy||'')+'</span> '+wfTag(d)+'</span></div>';
   if(adm)h+=d.costed===false?'<p class="alert">Submitted without costs. The figures below use the current masters and are recorded when you verify.</p>':
     '<p class="note" style="margin:0 0 6px">Recorded: Central Automation '+inr(+d.value||0)+(d.valueOriginal?' (adjusted from '+inr(d.valueOriginal)+')':'')+', benchmark '+inr(valB(d))+'. Charged '+inr(+d.charged||0)+(d.note?'. Note: '+esc(d.note):'')+'</p>';
   else if(d.note)h+='<p class="note" style="margin:0 0 6px">Note: '+esc(d.note)+'</p>';
+  if(adm&&d.state&&(w==='pending'||w==='verified')){
+    var rn=recalcPlan(d);
+    if(rn.changed)h+='<p class="alert">With the current masters this would cost Central Automation <b>'+inr(rn.newV)+'</b> (recorded '+inr(rn.oldV)+'), benchmark '+inr(rn.newB)+' (recorded '+inr(rn.oldB)+').</p>';
+  }
   h+='<ol class="log">'+(d.log||[]).map(function(l){return '<li><b>'+esc(nameOf(l.by))+'</b> '+esc((logTxt[l.t]||l.t).toLowerCase())+(l.text?': '+esc(l.text):'')+' <span style="color:var(--muted)">'+esc(fmtDT(l.at))+'</span></li>';}).join('')+'</ol>';
   var st=null;
   if(d.state){st=stateOf(d);var R=calc2(st);h+=adm?resultsHTML(st,R):reviewHTML(st,R);}
@@ -1325,7 +1431,12 @@ function renderDetail(){
     if(!ME.id)h+='<p class="note">Sign in to verify or edit entries.</p>';
     else if(w==='pending'&&mine&&!ME.selfVerify)h+='<p class="note">'+(adm?'Another admin':'An admin')+' needs to verify your entry.</p>';
   }
-  h+='<div class="actions"><button type="button" class="lnk" data-act="close" data-id="">Close</button></div></div>';
+  var rcBtn='';
+  if(adm&&d.state&&(w==='pending'||w==='verified')){
+    var rp=recalcPlan(d);
+    if(rp.changed)rcBtn='<button type="button" class="btn" data-act="recalc" data-id="'+esc(d._id)+'">Recalculate with the current masters</button>';
+  }
+  h+='<div class="actions">'+rcBtn+'<button type="button" class="lnk" data-act="close" data-id="">Close</button></div></div>';
   el.innerHTML=h;
 }
 
@@ -1552,6 +1663,17 @@ if(!LIB)document.addEventListener('click',function(e){
   if(id==='cancelEdit'){editingId=null;editingWf='';S.reg.reply='';update();return;}
   if(id==='mSave'){saveMaster(MTAB);return;}
   if(id==='regCsv'){exportReg();return;}
+  if(id==='rcPreview'){rcPreview();renderAppr();return;}
+  if(id==='rcApply'){
+    if(t.dataset.armed){rcApply();}
+    else{t.dataset.armed='1';t.textContent='Tap again to recalculate';setTimeout(function(){if(t.isConnected){delete t.dataset.armed;t.textContent='Recalculate these '+((RC.plan||[]).filter(function(p){return p.changed;}).length)+' entries';}},3000);}
+    return;
+  }
+  if(id==='useMasters'){
+    if(t.dataset.armed){S=recalcState(S,false);S.dirty=true;buildWizard();update();toast('Rates and prices are now the current masters; your choices are kept');}
+    else{t.dataset.armed='1';t.textContent='Tap again to confirm';setTimeout(function(){if(t.isConnected){delete t.dataset.armed;t.textContent='Use the current masters';}},2500);}
+    return;
+  }
   if(id==='printBtn'){doPrint();return;}
   if(t.dataset.add==='team'){S.team.push({role:'',level:'Mid',people:1,days:'',alloc:100});S.dirty=true;$('#teamWrap').innerHTML=teamHTML();update();return;}
   if(t.dataset.add==='other'){S.other.push({name:'New item',cat:'lic',type:'once',cost:0,costB:0,qty:1});S.dirty=true;$('#otherWrap').innerHTML=otherHTML();update();return;}
@@ -1581,6 +1703,10 @@ if(!LIB)document.addEventListener('click',function(e){
   if(act==='open'){APSEL=rid;apSig='';apAdj='';apNote='';apCharged='';renderDetail();var dt=$('#apdetail');if(dt)dt.scrollIntoView({block:'start'});}
   else if(act==='close'){APSEL=null;apSig='';renderDetail();}
   else if(act==='verify')verifyReg(rid);
+  else if(act==='recalc'){
+    if(t.dataset.armed)recalcEntry(rid);
+    else{t.dataset.armed='1';t.textContent='Tap again to confirm';setTimeout(function(){if(t.isConnected){delete t.dataset.armed;t.textContent='Recalculate with the current masters';}},2500);}
+  }
   else if(act==='sendback')sendBack(rid);
   else if(act==='edit')editEntry(rid);
   else if(act==='copy')copyEntry(rid);

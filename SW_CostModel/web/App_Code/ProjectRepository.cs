@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 /// <summary>
@@ -11,6 +12,7 @@ using System.Text.RegularExpressions;
 ///   - only the submitter can edit or delete, and never after verification
 ///   - people who are not admins see only their own entries, without any cost figures;
 ///     what they submit is stored without costs and an admin costs it when verifying
+///   - an admin can recalculate an entry awaiting verification, or a verified one, with the current masters (Recalc); it is logged
 /// </summary>
 public static class ProjectRepository
 {
@@ -285,6 +287,56 @@ public static class ProjectRepository
         batch.Add("UPDATE dbo.SwProjectRegister SET Workflow = 'info', UpdatedAt = SYSUTCDATETIME() WHERE RegisterId = @id", "@id", id);
         AddLog(batch, id, "info", user.Login, comment);
         batch.Commit(409, "conflict", "This entry changed. Review it again.");
+    }
+
+    /* ================= recalculate (admins) ================= */
+
+    static readonly CultureInfo Inr = new CultureInfo("en-IN");
+    static string Money(decimal? v) { return v == null ? "none" : v.Value.ToString("N0", Inr); }
+
+    /// <summary>
+    /// Replaces the saved estimate and the cost figures of an entry with ones worked out (by the page) with the current masters.
+    /// Allowed for entries awaiting verification and verified ones; the workflow, the submitter and the verifier stay as they are.
+    /// Refused for an entry sent back to its submitter (they are editing it) and for a verified entry whose value the verifier
+    /// adjusted (the adjustment belongs to the old figure). The old and the new figures are written to the history, from the stored values.
+    /// </summary>
+    public static void Recalc(CurrentUser user, IDictionary<string, object> body)
+    {
+        user.RequireAdmin("Only admins can recalculate entries.");
+        string id = Json.Text(body, "id", 200), expected = Json.Text(body, "updated", 40);
+        IDictionary<string, object> costing = Json.Obj(body, "costing");
+        if (String.IsNullOrEmpty(expected))
+            throw new ApiException(400, "bad_request", "The version of the entry is missing. Reload the page and try again.");
+        if (costing == null) throw new ApiException(400, "bad_request", "The new cost figures are missing.");
+        foreach (string needed in new[] { "value", "valueB", "oneTime", "yearly" })
+            if (!Json.Has(costing, needed)) throw new ApiException(400, "bad_request", "The cost figures are missing. Reload the page and try again.");
+        string state = Json.Text(costing, "state", 4000000);
+        if (state == null || !(SafeParse(state) is IDictionary<string, object>))
+            throw new ApiException(400, "bad_request", "The saved estimate is not valid.");
+
+        DataTable t = Db.Select("SELECT Workflow, UpdatedAt, ValueINR, ValueOriginalINR, BenchmarkValueINR FROM dbo.SwProjectRegister WHERE RegisterId = " + Db.Quote(id ?? ""));
+        if (t.Rows.Count == 0) throw new ApiException(404, "not_found", "This entry no longer exists.");
+        DataRow r = t.Rows[0];
+        string wf = Db.Str(r, "Workflow");
+        if (wf != "pending" && wf != "verified")
+            throw new ApiException(409, "conflict", "This entry was sent back to its submitter, who is editing it. Recalculate it after it is submitted again.");
+        if (expected != Db.Iso(r, "UpdatedAt")) throw new ApiException(409, "conflict", "This entry changed. Reload the page and try again.");
+        if (Db.Dec(r, "ValueOriginalINR") != null)
+            throw new ApiException(409, "conflict", "The verifier adjusted the value of this entry, so it is not recalculated.");
+
+        decimal newValue = Json.Num(costing, "value", 0, MaxValue), newBench = Json.Num(costing, "valueB", 0, MaxValue);
+        string comment = "Recalculated with the current masters: Central Automation cost " + Money(Db.Dec(r, "ValueINR")) + " to " + Money(newValue) +
+            "; benchmark " + Money(Db.Dec(r, "BenchmarkValueINR")) + " to " + Money(newBench) + ".";
+
+        var fields = new List<object> { "@id", id, "@costedBy", user.Login, "@state", state };
+        fields.AddRange(Figures(costing, true));
+        var batch = new Db.Batch().Guard(
+            "EXISTS (SELECT 1 FROM dbo.SwProjectRegister WITH (UPDLOCK, HOLDLOCK) WHERE RegisterId = @id AND Workflow IN ('pending','verified') AND UpdatedAt = @upd AND ValueOriginalINR IS NULL)",
+            "@id", id, "@upd", (DateTime)r["UpdatedAt"]);
+        batch.Add("UPDATE dbo.SwProjectRegister SET CostedBy = @costedBy, EstimateJson = @state, UpdatedAt = SYSUTCDATETIME(), " +
+            FigureAssignments + " WHERE RegisterId = @id", fields.ToArray());
+        AddLog(batch, id, "recalc", user.Login, comment);
+        batch.Commit(409, "conflict", "This entry changed. Reload the page and try again.");
     }
 
     /// <summary>What a reviewer was shown: the entry's value and the version (UpdatedAt) it was read at.</summary>

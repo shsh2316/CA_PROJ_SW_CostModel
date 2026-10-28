@@ -278,6 +278,10 @@ header.top h1{font-size:clamp(20px,3.2vw,28px)}
 .usum{margin:0 0 8px;font-weight:500}
 td.acts{white-space:nowrap}
 
+.rc{border:1px solid var(--line);border-radius:3px;background:var(--surface);padding:6px 14px 10px;margin:0 0 12px}
+.rc>summary{cursor:pointer;font-weight:600;color:var(--steel);min-height:38px;display:flex;align-items:center}
+.rc .ctl{display:flex;flex-wrap:wrap;gap:4px 22px}
+
 @media print{
   @page{size:A4;margin:14mm}
   :root{padding:0!important}
