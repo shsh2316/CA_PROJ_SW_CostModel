@@ -112,3 +112,11 @@ Each project is inserted as a **verified** entry (with a "submit" and a "verify"
 (default `Import`). Running the script again skips projects that already exist. To regenerate it after changing an
 assumption: `node database\tools\generate_ca_projects_import.js "CA_Projects_List_As_of_July_2026.xlsx" database\07_import_ca_projects_list.sql`
 (needs Node 18+ and Playwright).
+
+## Slides for the period Nov 2025 to Nov 2026
+
+`docs\CA_Projects_Nov2025-Nov2026.pptx` (3 slides: cost, man power saving in-house vs a software company, stated and other benefits), with the 120 projects and their
+derived figures in `..._projects.csv` and every slide number in `..._data.json`. Made by `database\tools\derive_ca_projects_deck.js` (same costing and assumptions as script 07):
+`node derive_ca_projects_deck.js "CA_Projects_List_As_of_July_2026.xlsx" <output folder>`. Projects: dates overlapping 1 Nov 2025 to 30 Nov 2026, plus every In Progress project.
+Costs and the benchmark saving are derived; before/after figures are quoted from the sheet's text (checked by the script); benefit themes are a keyword reading of the Key Benefit text.
+

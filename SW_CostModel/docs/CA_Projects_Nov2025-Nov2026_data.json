@@ -1,0 +1,733 @@
+{
+ "source": "CA_Projects_List_As_of_July_2026.xlsx",
+ "period": [
+  "2025-11-01",
+  "2026-11-30"
+ ],
+ "counts": {
+  "workbook": 190,
+  "inScope": 120,
+  "byGroup": [
+   [
+    "Dated in the period, in use",
+    54
+   ],
+   [
+    "Dated in the period, in progress",
+    47
+   ],
+   [
+    "In progress, no dates",
+    16
+   ],
+   [
+    "In progress, dated outside the period",
+    3
+   ]
+  ],
+  "left": 70,
+  "leftByReason": [
+   [
+    "Dated outside the period, not in progress",
+    49
+   ],
+   [
+    "No dates, not in progress",
+    20
+   ],
+   [
+    "Failed",
+    1
+   ]
+  ]
+ },
+ "total": {
+  "n": 120,
+  "oneTime": 251676347.5,
+  "oneTimeB": 434886720,
+  "yearly": 60956452.125,
+  "yearlyB": 116113344,
+  "tco": 438770949.79281205,
+  "tcoB": 785961000.9600002,
+  "pd": 13783,
+  "pdB": 13783,
+  "labour": 135216347.5,
+  "labourB": 299460720
+ },
+ "byGroup": [
+  {
+   "key": "Dated in the period, in use",
+   "n": 54,
+   "oneTime": 122282912.5,
+   "oneTimeB": 215643000,
+   "yearly": 28784686.875,
+   "yearlyB": 56239800,
+   "tco": 210406291.15468752,
+   "tcoB": 385203904.4999999,
+   "pd": 7286,
+   "pdB": 7286,
+   "labour": 69875912.5,
+   "labourB": 154701300
+  },
+  {
+   "key": "Dated in the period, in progress",
+   "n": 47,
+   "oneTime": 93952642.5,
+   "oneTimeB": 160138190,
+   "yearly": 23181521.375,
+   "yearlyB": 43439238,
+   "tco": 165219670.79093748,
+   "tcoB": 291725570.7949999,
+   "pd": 4818,
+   "pdB": 4818,
+   "labour": 48339142.5,
+   "labourB": 107096340
+  },
+  {
+   "key": "In progress, no dates",
+   "n": 16,
+   "oneTime": 29387100,
+   "oneTimeB": 48734200,
+   "yearly": 7502065,
+   "yearlyB": 13631640,
+   "tco": 52517643.66250002,
+   "tcoB": 90174075.10000002,
+   "pd": 1440,
+   "pdB": 1440,
+   "labour": 13859100,
+   "labourB": 30677400
+  },
+  {
+   "key": "In progress, dated outside the period",
+   "n": 3,
+   "oneTime": 6053692.5,
+   "oneTimeB": 10371330,
+   "yearly": 1488178.875,
+   "yearlyB": 2802666,
+   "tco": 10627344.184687499,
+   "tcoB": 18857450.564999998,
+   "pd": 239,
+   "pdB": 239,
+   "labour": 3142192.5,
+   "labourB": 6985680
+  }
+ ],
+ "byKpi": [
+  {
+   "key": "Productivity",
+   "n": 39,
+   "oneTime": 88084902.5,
+   "oneTimeB": 155415390,
+   "yearly": 20754360.375,
+   "yearlyB": 40552278,
+   "tco": 151629195.98843753,
+   "tcoB": 277686349.395,
+   "pd": 4599,
+   "pdB": 4599,
+   "labour": 50235402.5,
+   "labourB": 111401940
+  },
+  {
+   "key": "Quality",
+   "n": 23,
+   "oneTime": 48166155,
+   "oneTimeB": 83143910,
+   "yearly": 11672548.25,
+   "yearlyB": 22213182,
+   "tco": 83994688.795625,
+   "tcoB": 150311603.25500003,
+   "pd": 2794,
+   "pdB": 2794,
+   "labour": 25844655,
+   "labourB": 57187260
+  },
+  {
+   "key": "Reliability",
+   "n": 22,
+   "oneTime": 38174112.5,
+   "oneTimeB": 62102740,
+   "yearly": 9980366.875,
+   "yearlyB": 17762148,
+   "tco": 69006352.3546875,
+   "tcoB": 116234179.57000002,
+   "pd": 1653,
+   "pdB": 1653,
+   "labour": 16823112.5,
+   "labourB": 37274640
+  },
+  {
+   "key": "Others",
+   "n": 21,
+   "oneTime": 34809540,
+   "oneTimeB": 55492350,
+   "yearly": 9282306,
+   "yearlyB": 16197270,
+   "tco": 63530920.66499999,
+   "tcoB": 104964603.67500001,
+   "pd": 1955,
+   "pdB": 1955,
+   "labour": 14429040,
+   "labourB": 31792800
+  },
+  {
+   "key": "Sustainability",
+   "n": 5,
+   "oneTime": 20846662.5,
+   "oneTimeB": 41151470,
+   "yearly": 4093874.375,
+   "yearlyB": 9444294,
+   "tco": 33152820.373437494,
+   "tcoB": 69149170.83500001,
+   "pd": 1445,
+   "pdB": 1445,
+   "labour": 15994162.5,
+   "labourB": 35508720
+  },
+  {
+   "key": "Workforce optimisation",
+   "n": 6,
+   "oneTime": 14599545,
+   "oneTimeB": 26171460,
+   "yearly": 3350181.75,
+   "yearlyB": 6691092,
+   "tco": 24831872.529374998,
+   "tcoB": 46295119.53000001,
+   "pd": 1021,
+   "pdB": 1021,
+   "labour": 8776545,
+   "labourB": 19400160
+  },
+  {
+   "key": "HSE and safety",
+   "n": 4,
+   "oneTime": 6995430,
+   "oneTimeB": 11409400,
+   "yearly": 1822814.5,
+   "yearlyB": 3253080,
+   "tco": 12625099.08625,
+   "tcoB": 21319974.7,
+   "pd": 316,
+   "pdB": 316,
+   "labour": 3113430,
+   "labourB": 6895200
+  }
+ ],
+ "byType": [
+  {
+   "key": "Digitalization",
+   "n": 65,
+   "oneTime": 104833260,
+   "oneTimeB": 165348950,
+   "yearly": 28294364,
+   "yearlyB": 48851790,
+   "tco": 192465589.01,
+   "tcoB": 314754557.9749999,
+   "pd": 5897,
+   "pdB": 5897,
+   "labour": 41750760,
+   "labourB": 91993200
+  },
+  {
+   "key": "AI model",
+   "n": 10,
+   "oneTime": 33834525,
+   "oneTimeB": 65011900,
+   "yearly": 7008928.75,
+   "yearlyB": 15430380,
+   "tco": 55025315.696875,
+   "tcoB": 110969852.95,
+   "pd": 1435,
+   "pdB": 1435,
+   "labour": 24129525,
+   "labourB": 53726400
+  },
+  {
+   "key": "Maintenance",
+   "n": 10,
+   "oneTime": 22604760,
+   "oneTimeB": 39708700,
+   "yearly": 5324464,
+   "yearlyB": 10369740,
+   "tco": 38906391.75999999,
+   "tcoB": 70978145.35,
+   "pd": 1822,
+   "pdB": 1822,
+   "labour": 12899760,
+   "labourB": 28423200
+  },
+  {
+   "key": "Mathematical Model",
+   "n": 6,
+   "oneTime": 21559037.5,
+   "oneTimeB": 41808900,
+   "yearly": 4394105.625,
+   "yearlyB": 9818580,
+   "tco": 34821354.0765625,
+   "tcoB": 71010093.45,
+   "pd": 1123,
+   "pdB": 1123,
+   "labour": 15736037.5,
+   "labourB": 35037600
+  },
+  {
+   "key": "Vision AI Model",
+   "n": 5,
+   "oneTime": 16168995,
+   "oneTimeB": 30839870,
+   "yearly": 3392224.25,
+   "yearlyB": 7381974,
+   "tco": 26438613.385624997,
+   "tcoB": 52851687.035000004,
+   "pd": 673,
+   "pdB": 673,
+   "labour": 11316495,
+   "labourB": 25197120
+  },
+  {
+   "key": "Rule Base Model",
+   "n": 7,
+   "oneTime": 11076900,
+   "oneTimeB": 17337850,
+   "yearly": 3015160,
+   "yearlyB": 5167170,
+   "tco": 20421564.4,
+   "tcoB": 33155453.424999997,
+   "pd": 484,
+   "pdB": 484,
+   "labour": 4283400,
+   "labourB": 9438000
+  },
+  {
+   "key": "ML model",
+   "n": 4,
+   "oneTime": 11196525,
+   "oneTimeB": 20800600,
+   "yearly": 2452978.75,
+   "yearlyB": 5131320,
+   "tco": 18655245.821875,
+   "tcoB": 36162766.300000004,
+   "pd": 435,
+   "pdB": 435,
+   "labour": 7314525,
+   "labourB": 16286400
+  },
+  {
+   "key": "Mathematical Model / AI",
+   "n": 3,
+   "oneTime": 9502980,
+   "oneTimeB": 18062130,
+   "yearly": 2005572,
+   "yearlyB": 4340826,
+   "tco": 15578365.23,
+   "tcoB": 31012759.965,
+   "pd": 392,
+   "pdB": 392,
+   "labour": 6591480,
+   "labourB": 14676480
+  },
+  {
+   "key": "Cybersecurity",
+   "n": 4,
+   "oneTime": 7924680,
+   "oneTimeB": 13421800,
+   "yearly": 1962202,
+   "yearlyB": 3655560,
+   "tco": 13958921.305,
+   "tcoB": 24500572.9,
+   "pd": 571,
+   "pdB": 571,
+   "labour": 4042680,
+   "labourB": 8907600
+  },
+  {
+   "key": "Technology",
+   "n": 2,
+   "oneTime": 6040320,
+   "oneTimeB": 11289500,
+   "yearly": 1292798,
+   "yearlyB": 2743500,
+   "tco": 9962141.195,
+   "tcoB": 19486763.75,
+   "pd": 579,
+   "pdB": 579,
+   "labour": 4099320,
+   "labourB": 9032400
+  },
+  {
+   "key": "OT-Infra",
+   "n": 3,
+   "oneTime": 5240820,
+   "oneTimeB": 8518050,
+   "yearly": 1366248,
+   "yearlyB": 2432010,
+   "tco": 9460567.32,
+   "tcoB": 15928341.525000002,
+   "pd": 329,
+   "pdB": 329,
+   "labour": 2329320,
+   "labourB": 5132400
+  },
+  {
+   "key": "Digital Twin / ML Model",
+   "n": 1,
+   "oneTime": 1693545,
+   "oneTimeB": 2738470,
+   "yearly": 447406.75,
+   "yearlyB": 790494,
+   "tco": 3076880.591875,
+   "tcoB": 5150006.335,
+   "pd": 43,
+   "pdB": 43,
+   "labour": 723045,
+   "labourB": 1609920
+  }
+ ],
+ "byStatus": [
+  {
+   "key": "In progress",
+   "n": 66,
+   "oneTime": 129393435,
+   "oneTimeB": 219243720,
+   "yearly": 32171765.25,
+   "yearlyB": 59873544,
+   "tco": 228364658.63812482,
+   "tcoB": 400757096.4599998,
+   "pd": 6497,
+   "pdB": 6497,
+   "labour": 65340435,
+   "labourB": 144759420
+  },
+  {
+   "key": "In use",
+   "n": 54,
+   "oneTime": 122282912.5,
+   "oneTimeB": 215643000,
+   "yearly": 28784686.875,
+   "yearlyB": 56239800,
+   "tco": 210406291.15468752,
+   "tcoB": 385203904.4999999,
+   "pd": 7286,
+   "pdB": 7286,
+   "labour": 69875912.5,
+   "labourB": 154701300
+  }
+ ],
+ "withoutAnyBenefitText": 48,
+ "withNoTextAtAll": 47,
+ "themes": [
+  {
+   "theme": "Turnaround time and time saved",
+   "n": 16,
+   "examples": [
+    "RCM",
+    "QRM",
+    "Redtag with Secondary Sales (In Progress)",
+    "5S module"
+   ]
+  },
+  {
+   "theme": "Manual work and reporting removed",
+   "n": 19,
+   "examples": [
+    "RCM",
+    "QRM",
+    "Redtag with Secondary Sales (In Progress)",
+    "Slab Qualification System"
+   ]
+  },
+  {
+   "theme": "Real-time visibility and tracking",
+   "n": 29,
+   "examples": [
+    "RCM",
+    "Fuel Management - Stores (In Progress)",
+    "Redtag with Secondary Sales (In Progress)",
+    "5S module"
+   ]
+  },
+  {
+   "theme": "Early warning, predictive maintenance, reliability",
+   "n": 12,
+   "examples": [
+    "RCM",
+    "Casting Speed Optimization Model",
+    "Ladle HOT spot detection System",
+    "Common Process Control Room"
+   ]
+  },
+  {
+   "theme": "Quality, productivity and process control",
+   "n": 35,
+   "examples": [
+    "QRM",
+    "LF Rinsing Trend",
+    "L-2 system integration with GPQS for HSM-1 product quality",
+    "Slab Qualification System"
+   ]
+  },
+  {
+   "theme": "Safety and hazard avoidance",
+   "n": 8,
+   "examples": [
+    "Casting Speed Optimization Model",
+    "Ladle HOT spot detection System",
+    "Common Process Control Room",
+    "UAV / Drone application"
+   ]
+  },
+  {
+   "theme": "Cost, energy and material savings",
+   "n": 24,
+   "examples": [
+    "RCM",
+    "Fuel Management - Stores (In Progress)",
+    "Redtag with Secondary Sales (In Progress)",
+    "Slab Qualification System"
+   ]
+  },
+  {
+   "theme": "Approvals, records and compliance",
+   "n": 7,
+   "examples": [
+    "RCM",
+    "Redtag with Secondary Sales (In Progress)",
+    "5S module",
+    "CBAM"
+   ]
+  },
+  {
+   "theme": "Obsolete systems replaced, cyber-security and infrastructure",
+   "n": 11,
+   "examples": [
+    "Conarc Level-2 Upgradation",
+    "SMP-1 Caster Level-2 upgradation",
+    "SMP-1 EAF/LF/RH/VD Level-2 upgradation",
+    "SMP2 Level 2 system"
+   ]
+  }
+ ],
+ "stated": [
+  {
+   "name": "QRM",
+   "sr": 5,
+   "what": "Quality KPI capture (QRM)",
+   "kind": "time",
+   "before": "3 days",
+   "after": "1 hour",
+   "quote": "TAT reduced from 3 days to 1 hours"
+  },
+  {
+   "name": "CRMS",
+   "sr": 23,
+   "what": "Manpower distribution (CRMS)",
+   "kind": "time",
+   "before": "5 hours",
+   "after": "1 hour",
+   "less": 80,
+   "quote": "TAT reduced from 5 hours to 1 hour for manpower distribution"
+  },
+  {
+   "name": "Slab Qualification System",
+   "sr": 26,
+   "what": "Non-prime slab identification",
+   "kind": "effort",
+   "before": "7 man-days",
+   "after": "1 man-day",
+   "less": 85.7,
+   "quote": "Earlier 7 man-days were being used"
+  },
+  {
+   "name": "Slab Qualification System",
+   "sr": 106,
+   "what": "Non-prime slab identification (phase 2)",
+   "kind": "effort",
+   "before": "7 man-days",
+   "after": "1 man-day",
+   "less": 85.7,
+   "quote": "Earlier 7 man-days were being used"
+  },
+  {
+   "name": "Byproduct Management",
+   "sr": 27,
+   "what": "Report preparation",
+   "kind": "effort",
+   "before": "4-5 hours",
+   "after": "1-2 minutes",
+   "quote": "report preparation time has been reduced from 4-5 hours to 1-2 minutes"
+  },
+  {
+   "name": "Yard Management Systema and Yard Automation",
+   "sr": 78,
+   "what": "Coil tracing turnaround",
+   "kind": "time",
+   "before": "160 minutes",
+   "after": "10 seconds",
+   "less": 99.9,
+   "quote": "Reduced coil tracing TAT from 160 minutes to 10 seconds"
+  },
+  {
+   "name": "Commitment Report",
+   "sr": 116,
+   "what": "SCM commitment report turnaround",
+   "kind": "time",
+   "before": "4 days",
+   "after": "3 minutes",
+   "quote": "TAT reduced for SCM team from 4 days to 3 minutes"
+  },
+  {
+   "name": "Stowage Plan",
+   "sr": 109,
+   "what": "Demurrage",
+   "kind": "cost",
+   "before": "",
+   "after": "30% lower",
+   "quote": "Reduced Demauragge by 30%"
+  },
+  {
+   "name": "C-MARVEL - Raw material optimization model for Odisha facilities",
+   "sr": 66,
+   "what": "Blast furnace production (raw material model)",
+   "kind": "output",
+   "before": "",
+   "after": "+70 tons/day",
+   "quote": "70 tons/day increment in the BF production"
+  },
+  {
+   "name": "C-MARVEL - Raw material optimization model for Odisha facilities",
+   "sr": 66,
+   "what": "Cost of production, Hazira (raw material model)",
+   "kind": "cost",
+   "before": "",
+   "after": "Rs 615 per ton lower",
+   "quote": "reduction in cost of production by Rs 615/ Ton"
+  }
+ ],
+ "calGainedInScope": [],
+ "topSaving": [
+  {
+   "sr": 66,
+   "name": "C-MARVEL - Raw material optimization model for Odisha facilities",
+   "saving": 21449189.167499997,
+   "tco": 16423994.9275,
+   "tcoB": 37873184.095
+  },
+  {
+   "sr": 48,
+   "name": "CBAM",
+   "saving": 13939358.678125,
+   "tco": 11250881.896875,
+   "tcoB": 25190240.575
+  },
+  {
+   "sr": 55,
+   "name": "ECD - CSPMill",
+   "saving": 10096848.21,
+   "tco": 8603985.805,
+   "tcoB": 18700834.015
+  },
+  {
+   "sr": 27,
+   "name": "Byproduct Management",
+   "saving": 9705589.5453125,
+   "tco": 8334469.0296875,
+   "tcoB": 18040058.575
+  },
+  {
+   "sr": 120,
+   "name": "GPQS Online",
+   "saving": 8132013.99,
+   "tco": 7343841.385,
+   "tcoB": 15475855.375
+  },
+  {
+   "sr": 14,
+   "name": "L-2 system integration with GPQS for HSM-1 product quality",
+   "saving": 6233385.795,
+   "tco": 6012559.779999999,
+   "tcoB": 12245945.575
+  },
+  {
+   "sr": 94,
+   "name": "Predicate warm charge Slab",
+   "saving": 5962353.66375,
+   "tco": 5755957.79125,
+   "tcoB": 11718311.455
+  },
+  {
+   "sr": 98,
+   "name": "SMP-1 EAF/LF/RH/VD Level-2 upgradation",
+   "saving": 5929025.550000001,
+   "tco": 5799148.225,
+   "tcoB": 11728173.775
+  }
+ ],
+ "candidates": [
+  {
+   "sr": 5,
+   "name": "QRM",
+   "candidates": [
+    "benefit: TAT reduced from 3 days to 1 hours"
+   ]
+  },
+  {
+   "sr": 23,
+   "name": "CRMS",
+   "candidates": [
+    "benefit: TAT reduced from 5 hours to 1 hour for manpower distribution"
+   ]
+  },
+  {
+   "sr": 26,
+   "name": "Slab Qualification System",
+   "candidates": [
+    "benefit: Earlier 7 man-days were being used for the idetified non-prime slab as compared to the current man-days of 1"
+   ]
+  },
+  {
+   "sr": 27,
+   "name": "Byproduct Management",
+   "candidates": [
+    "benefit: By automating data collection and reporting, report preparation time has been reduced from 4-5 hours to 1-2 minutes"
+   ]
+  },
+  {
+   "sr": 66,
+   "name": "C-MARVEL - Raw material optimization model for Odisha facilities",
+   "candidates": [
+    "benefit: • Range of improvement: 3% to 5% in Blast Furnace 1",
+    "benefit: 1% reduction in Al2O3 in pellets",
+    "benefit: ‒ 70 tons/day increment in the BF production",
+    "benefit: ‒ Benefit in Hazira: reduction in cost of production by Rs 615/ Ton"
+   ]
+  },
+  {
+   "sr": 78,
+   "name": "Yard Management Systema and Yard Automation",
+   "candidates": [
+    "benefit: Reduced coil tracing TAT from 160 minutes to 10 seconds"
+   ]
+  },
+  {
+   "sr": 106,
+   "name": "Slab Qualification System",
+   "candidates": [
+    "benefit: Earlier 7 man-days were being used for the idetified non-prime slab as compared to the current man-days of 1"
+   ]
+  },
+  {
+   "sr": 109,
+   "name": "Stowage Plan",
+   "candidates": [
+    "benefit: Reduced Demauragge by 30% with realtime visibility and model based demauragge calculation"
+   ]
+  },
+  {
+   "sr": 116,
+   "name": "Commitment Report",
+   "candidates": [
+    "benefit: Machine learning model dispatch prediction for 4 week with 99% accuracy",
+    "benefit: TAT reduced for SCM team from 4 days to 3 minutes"
+   ]
+  }
+ ]
+}
