@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using Ports;
 
 /// <summary>
-/// All SQL Server access goes through dbClassSql (connection string CCCConString in web.config).
+/// All SQL Server access goes through dbClassSql (connection string CCCConString in Web.config).
 /// dbClassSql keeps one shared connection that can run only one command at a time, so every call
 /// locks on its instance. dbClassSql has no parameters on reads, so values in a SELECT go through Quote.
 /// Writes go through Batch: one or more statements with parameters, run as one transaction.
@@ -27,7 +27,7 @@ public static class Db
         catch (TypeInitializationException ex)
         {
             // dbClassSql reads its connection string in a static constructor.
-            throw new ApiException(500, "config", "The connection string '" + ConnectionStringName + "' is missing or not valid in web.config.", ex);
+            throw new ApiException(500, "config", "The connection string '" + ConnectionStringName + "' is missing or not valid in Web.config.", ex);
         }
     }
 
@@ -42,7 +42,7 @@ public static class Db
             throw new ApiException(503, "database_unavailable", "The database returned nothing.");
         if (dt.Columns.Count == 2 && dt.Columns.Contains("ErrorNo") && dt.Columns.Contains("Error"))
             throw new ApiException(503, "database_unavailable",
-                "Cannot read from SQL Server. Check CCCConString in web.config and that the application pool account can log in to the database.",
+                "Cannot read from SQL Server. Check CCCConString in Web.config and that the application pool account can log in to the database.",
                 new InvalidOperationException(dt.Rows.Count > 0 ? Convert.ToString(dt.Rows[0]["Error"]) : "Database error."));
         return dt;
     }

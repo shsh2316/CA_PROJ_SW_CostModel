@@ -72,7 +72,7 @@ All scripts are safe to run again. To upgrade a database made with an earlier ve
   or a domain service account that you set as the application pool identity.
 
 If you change the database name, change it at the top of each script and in
-the `CCCConString` entry in `web\web.config`.
+the `CCCConString` entry in the root `Web.config`.
 
 ## 3. IIS site
 
@@ -81,8 +81,11 @@ the `CCCConString` entry in `web\web.config`.
    `project_registry.aspx`, `project_report.aspx` (with their `.aspx.cs`; the pages have no server controls, so no designer files),
    `api\estimator.ashx` (with `estimator.ashx.cs`), everything in `App_Code` (Build Action
    **Compile**), and `assets` (Build Action **Content**). The `database` and `docs` folders stay out.
-   The settings in `SW_CostModel\web\web.config` (default document, security headers,
-   Windows authentication, `CCCConString`) must be in the project's `Web.config`.
+   All settings live in the project's root `Web.config` (the application root): `CCCConString`, Windows
+   authentication, security headers. There is no `web.config` inside `SW_CostModel\web`: IIS rejects
+   `<authentication>` in a subfolder ("allowDefinition='MachineToApplication'" error). The start page is
+   `/SW_CostModel/web/project_registry.aspx`; to open it at the site root, copy the project's two pages
+   and `assets` there or set a URL Rewrite / redirect from `/`.
 2. Build > Publish Selection > Folder, configuration **Release**. The published folder holds the
    pages, `assets`, `Web.config` and `bin` (including `bin\roslyn`, the compiler ASP.NET uses for the
    page markup). Copy that folder's contents to the server, for example
@@ -100,7 +103,7 @@ the `CCCConString` entry in `web\web.config`.
 
 ## 4. Database connection
 
-Edit the `CCCConString` entry in `web\web.config` on the server. It is the only place with
+Edit the `CCCConString` entry in `Web.config` on the server. It is the only place with
 connection details, and both `dbClassSql` and the API read it. The default uses Windows
 authentication to a local SQL Server:
 
@@ -148,23 +151,33 @@ authentication to a local SQL Server:
       BACKUP DATABASE CentralAutomationEstimator TO DISK = N'D:\Backup\CentralAutomationEstimator.bak' WITH COMPRESSION, CHECKSUM, INIT;
       ```
       Schedule it with SQL Server Agent (Express has no Agent: use Task Scheduler and `sqlcmd`).
-- [ ] **Site files** copied somewhere safe once (your own `web.config` has the connection string).
+- [ ] **Site files** copied somewhere safe once (your own `Web.config` has the connection string).
 - [ ] **Firewall**: clients reach the web server on 443; only the web server reaches SQL Server on 1433.
 - [ ] **A real test**: as a normal user submit an estimate; as an admin open it on Approval, verify it;
       confirm it shows in `/project_report.aspx` and the CSV opens in Excel.
+
+## Running locally in Visual Studio (IIS Express)
+
+1. Select the project in Solution Explorer, press **F4** (Properties window): set **Windows
+   Authentication = Enabled** and **Anonymous Authentication = Disabled**. Without this nobody is
+   signed in and the pages say "Sign in with your Windows account".
+2. Set `CCCConString` in the root `Web.config` to your SQL Server and database.
+3. Run (F5) and browse to `/SW_CostModel/web/project_registry.aspx` (or right-click the page >
+   Set As Start Page).
+4. Your Windows login must be in `dbo.SwAppUser` with `IsAdmin = 1` to see costs (script `06`).
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
-| HTTP 500.19 or a configuration error page | a feature from step 1 is missing (usually ASP.NET 4.x), or `CCCConString` in `web.config` is missing or not valid XML. |
+| HTTP 500.19 or a configuration error page | a feature from step 1 is missing (usually ASP.NET 4.x), or `CCCConString` in `Web.config` is missing or not valid XML, or a `web.config` was added in a subfolder that is not an application (remove it). |
 | Configuration error naming `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | `bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll` or the `bin\roslyn` folder was not copied: publish again and copy the whole folder. |
 | Build error "The name 'xyz' does not exist" or "already contains a definition for 'form1'" | a leftover Visual Studio template page (for example `project1.aspx` with its `.cs` and `.designer.cs`) is in the project: remove it. The two pages here have no `runat="server"` controls and need no designer file. |
 | `CS0433` "type exists in both" when running locally | rename the `App_Code` folder (for example `Code`) so ASP.NET does not compile it a second time; published output is not affected. |
-| Page loads but says "The connection string 'CCCConString' is missing or not valid" | the entry is missing or misspelt in `web.config`. |
+| Page loads but says "The connection string 'CCCConString' is missing or not valid" | the entry is missing or misspelt in `Web.config`. |
 | First page load is very slow, or a compile error appears once then goes | normal while IIS compiles; antivirus scanning `Temporary ASP.NET Files` can slow it. |
 | HTTP 401.2 | both Windows and Anonymous authentication are off. Enable Windows Authentication. |
-| Approval says "Cannot connect to SQL Server" | wrong server or database name in `CCCConString` in `web.config`; SQL Server not accepting TCP connections or the firewall blocks port 1433; or the app pool account has no SQL login (the event log then shows "Login failed for user ..."; check `@AppLogin` in script 01 matches the pool identity and re-run it). |
+| Approval says "Cannot connect to SQL Server" | wrong server or database name in `CCCConString` in `Web.config`; SQL Server not accepting TCP connections or the firewall blocks port 1433; or the app pool account has no SQL login (the event log then shows "Login failed for user ..."; check `@AppLogin` in script 01 matches the pool identity and re-run it). |
 | Someone sees only Registration and My entries | they are not an admin: set `IsAdmin = 1` for them in `dbo.SwAppUser`, then they reload the page. |
 | "This browser cannot read Excel files" | use a current Edge or Chrome. Files must be `.xlsx` (Excel Workbook), not `.xls`. |
 | "Sign in with your Windows account" when submitting | Anonymous Authentication is still on, or Windows Authentication is off. |
@@ -178,7 +191,7 @@ Current Edge, Chrome or Firefox. Internet Explorer is not supported.
 
 1. Back up the database and the current site folder.
 2. Publish the new build and copy it over the old files, but keep the server's own
-   `CCCConString` in `web.config` (merge the file if the new version changed other settings).
+   `CCCConString` in `Web.config` (merge the file if the new version changed other settings).
 3. Run any new database scripts (all are safe to run again).
 4. Browse to the site once (the first request is slow while IIS compiles the page markup). Browsers pick up the new files on the next visit
    (the site sends `Cache-Control: no-cache`).

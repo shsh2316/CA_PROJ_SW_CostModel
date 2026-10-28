@@ -8,7 +8,7 @@
    Before running, set the two values below:
      @DbName    the database name. If you change it, change it in
                 02_create_tables.sql, 03_seed_master_data.sql and in
-                the CCCConString entry in web\web.config too.
+                the CCCConString entry in Web.config too.
      @AppLogin  the Windows account the IIS site runs as:
                 - SQL Server on the same machine as IIS:
                     IIS APPPOOL\<application pool name>

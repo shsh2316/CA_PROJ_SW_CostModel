@@ -21,8 +21,6 @@ docs/
   AUDIT.md                                 audit findings and what was changed
 web/                                       the site source: build and publish it from Visual Studio (see docs/DEPLOYMENT_IIS.md)
   project_registry.aspx(.cs), project_report.aspx(.cs)  the estimator page and the report page
-  web.config                               IIS settings
-  web.config                               also holds the database connection, CCCConString
   api/estimator.ashx                       JSON API used by the page
   App_Code/                                API code, Db.cs and dbClassSql (all database access)
     ApiException.cs, Db.cs, Json.cs, CurrentUser.cs, MasterRepository.cs, ProjectRepository.cs
@@ -38,7 +36,7 @@ web/                                       the site source: build and publish it
 1. Run `database\01` to `03` in SSMS (set `@AppLogin` in 01 first).
 2. Copy the contents of `web` to the server, create an IIS site on a .NET 4 application pool,
    enable Windows Authentication and disable Anonymous.
-3. Edit `CCCConString` in `web\web.config` if SQL Server is not local.
+3. Edit `CCCConString` in the project's root `Web.config` if SQL Server is not local.
 4. Open the page once, then make yourself an admin: `UPDATE dbo.SwAppUser SET IsAdmin = 1 WHERE UserLogin = N'DOMAIN\you';`
 
 Full steps and troubleshooting: [docs/DEPLOYMENT_IIS.md](docs/DEPLOYMENT_IIS.md).
