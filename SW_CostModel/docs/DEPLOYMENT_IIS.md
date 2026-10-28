@@ -83,9 +83,8 @@ the `CCCConString` entry in the root `Web.config`.
    **Compile**), and `assets` (Build Action **Content**). The `database` and `docs` folders stay out.
    All settings live in the project's root `Web.config` (the application root): `CCCConString`, Windows
    authentication, security headers. There is no `web.config` inside `SW_CostModel\web`: IIS rejects
-   `<authentication>` in a subfolder ("allowDefinition='MachineToApplication'" error). The start page is
-   `/SW_CostModel/web/project_registry.aspx`; to open it at the site root, copy the project's two pages
-   and `assets` there or set a URL Rewrite / redirect from `/`.
+   `<authentication>` in a subfolder ("allowDefinition='MachineToApplication'" error). Include the root `Default.aspx` in the project too: it is the default document and forwards `/` to
+   `/SW_CostModel/web/project_registry.aspx`.
 2. Build > Publish Selection > Folder, configuration **Release**. The published folder holds the
    pages, `assets`, `Web.config` and `bin` (including `bin\roslyn`, the compiler ASP.NET uses for the
    page markup). Copy that folder's contents to the server, for example
@@ -162,8 +161,8 @@ authentication to a local SQL Server:
    Authentication = Enabled** and **Anonymous Authentication = Disabled**. Without this nobody is
    signed in and the pages say "Sign in with your Windows account".
 2. Set `CCCConString` in the root `Web.config` to your SQL Server and database.
-3. Run (F5) and browse to `/SW_CostModel/web/project_registry.aspx` (or right-click the page >
-   Set As Start Page).
+3. Run (F5). The site root forwards to `/SW_CostModel/web/project_registry.aspx` through `Default.aspx`
+   (a 403.14 "directory browsing" error at `/` means `Default.aspx` is missing).
 4. Your Windows login must be in `dbo.SwAppUser` with `IsAdmin = 1` to see costs (script `06`).
 
 ## Troubleshooting
