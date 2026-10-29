@@ -124,8 +124,7 @@ Costs and the benchmark saving are derived; before/after figures are quoted from
 `node derive_ca_projects_deck.js <workbook> <folder> 2026-10-28` (the third argument is the end of the period) and
 `node build_hod_benefits_pdf.js <folder>\deck_data.json <output.pdf> "28 October 2026"`. 1 FTE = 2,740 hours a year, a man-day 8 hours, a day of TAT 24 hours.
 
-`docs\CA_Benefits_Nov2025-Oct2026_HOD.pptx` is the 5-slide version for the HOD (it replaces the PDF for presenting; the PDF does not include the two added projects). It adds **SMP2 Digital Transformation**
-and **Paradeep Ports**, which are not in the workbook: their text and stated figures are in `database\tools\ca_projects_extra.json` (add a project there to include it). Regenerate with
+`docs\CA_Benefits_Nov2025-Oct2026_HOD.pptx` is the 4-slide version for the HOD (Summary with no project names, Money, FTE, Productivity; a project is named at most once; it replaces the PDF for presenting, and the PDF does not include the two added projects). It adds two projects that are not in the workbook (shown only as unnamed figures; the one still in progress is tagged POTENTIAL): their text and stated figures are in `database\tools\ca_projects_extra.json` (add a project there to include it). Regenerate with
 `node derive_ca_projects_deck.js <workbook> <folder> 2026-10-29 ca_projects_extra.json` then `node build_hod_benefits_deck.js <folder>\deck_data.json <output.pptx> "29 October 2026"` (needs `npm install pptxgenjs`).
-Added projects are counted but not costed with the estimator; a stated project cost is shown as an investment, never as a saving.
+Added projects are counted but not costed with the estimator; a stated project cost is never shown as a saving.
 
