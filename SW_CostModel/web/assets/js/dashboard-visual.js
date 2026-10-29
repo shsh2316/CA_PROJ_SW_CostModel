@@ -8,6 +8,9 @@ window.CADashVisual=(function(){
 'use strict';
 
 var HOURS_PER_FTE=2740,HOURS_PER_DAY=8;
+/* the photo library (files in assets/img) and each slide's photo until someone picks another on the page (Photos) */
+var LIBRARY=['plant.jpg','furnace.jpg','ladle.jpg','converter.jpg','slab.jpg','mill.jpg'];
+for(var k=7;k<=42;k++)LIBRARY.push('photo-'+(k<10?'0':'')+k+'.jpg');
 var PHOTO=['furnace.jpg','plant.jpg','ladle.jpg','converter.jpg','slab.jpg'];
 var EYEBROW='Central Automation – Level 2';
 var CAT_NAMES={manhours:'Man-hours saved',downtime:'Downtime avoided',energy:'Energy saved',quality:'Quality / yield improvement',material:'Material and consumables saved',
@@ -55,8 +58,10 @@ function fte2(h){return (h/HOURS_PER_FTE).toFixed(2);}
 function cut(t,n){t=String(t||'');return t.length>n?t.slice(0,n-1)+'…':t;}
 function catName(id){var c=X.cats&&X.cats[id];return (c&&c.name)||CAT_NAMES[id]||id;}
 function years(y){return y<1?n0(y*12)+' months':X.num(y,1)+' years';}
+/* the header photo, faded into the white of the slide; src is a library file's address or an uploaded picture (data: URL) */
+function photoStyle(src){return 'background-image:linear-gradient(100deg,#fff 0%,rgba(255,255,255,.92) 14%,rgba(255,255,255,0) 46%),linear-gradient(0deg,#fff 0%,rgba(255,255,255,0) 30%),url(\''+String(src).replace(/["'<>&\\]/g,'')+'\')';}
 function head(i,title,em,sub){
-  return '<div class="vphoto" style="background-image:linear-gradient(100deg,#fff 0%,rgba(255,255,255,.92) 14%,rgba(255,255,255,0) 46%),linear-gradient(0deg,#fff 0%,rgba(255,255,255,0) 30%),url(assets/img/'+PHOTO[i]+')"></div>'+
+  return '<div class="vphoto" style="'+photoStyle(X.photo?X.photo(i):'assets/img/'+PHOTO[i])+'"></div>'+
     '<div class="vhead"><p class="veb">'+e(EYEBROW)+'</p><h2>'+e(title)+(em?' <em>'+e(em)+'</em>':'')+'</h2>'+(sub?'<p class="vsub">'+sub+'</p>':'')+'</div>';
 }
 function card(cls,n,title,sub,body,extra){
@@ -267,8 +272,8 @@ function sProd(){
 
 var TITLES=['Working principle','Benefits at a glance','Money','FTE','Productivity'];
 return {
-  TITLES:TITLES,kpiOf:kpiOf,
-  /* i: 0..4; x: { esc, num, L (chosen projects), period, choiceNote, cats (value categories: id -> {name, unit}) } */
+  TITLES:TITLES,kpiOf:kpiOf,LIBRARY:LIBRARY,PHOTO:PHOTO,photoStyle:photoStyle,
+  /* i: 0..4; x: { esc, num, L (chosen projects), period, choiceNote, cats (value categories: id -> {name, unit}), photo(i) -> picture address } */
   make:function(i,x){X=x;D=figures(x.L);return [sPrinciple,sGlance,sMoney,sFte,sProd][i]();}
 };
 })();

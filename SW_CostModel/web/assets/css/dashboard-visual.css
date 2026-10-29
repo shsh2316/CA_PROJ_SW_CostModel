@@ -251,3 +251,17 @@
 .vpot2 .vbl{--lw:calc(var(--u)*12)}
 .vstrip .v2 b{white-space:nowrap;font-size:calc(var(--u)*2.4)}
 .vstrip .v1{flex-basis:22%}.vstrip .v2{flex-basis:38%}
+
+/* Photos panel */
+.phpanel{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:10px 12px;margin:0 0 10px;max-height:46vh;overflow:auto}
+.phhead{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.phhead b{flex:1;min-width:200px}
+.phh{font-size:13px;margin:10px 0 6px;color:var(--muted);font-weight:600}
+.phgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
+.phtile{position:relative;padding:0;border:2px solid transparent;border-radius:4px;background:none;cursor:pointer;aspect-ratio:16/10;overflow:hidden}
+.phtile img{width:100%;height:100%;object-fit:cover;display:block}
+.phtile.on{border-color:var(--steel);box-shadow:0 0 0 2px var(--steel)}
+.phtile:hover{border-color:var(--muted)}
+.phx{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:15px;line-height:22px;text-align:center}
+@media print{.phpanel{display:none!important}}
+.phgrid .note{grid-column:1/-1;margin:0}

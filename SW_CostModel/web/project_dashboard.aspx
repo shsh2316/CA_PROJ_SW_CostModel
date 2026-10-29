@@ -64,6 +64,7 @@
       <span class="dctl-gap"></span>
       <button type="button" class="btn sm" id="dEdit" aria-pressed="false" title="Change the words and numbers on the slides before downloading a picture">Edit</button>
       <button type="button" class="btn sm" id="dReset" hidden title="Draw the slides again from the register">Reset to the register</button>
+      <button type="button" class="btn sm" id="dPhotos" aria-expanded="false" aria-controls="phPanel" title="Choose, shuffle or upload the photos of the visual slides">Photos</button>
       <button type="button" class="btn sm" id="dPng">Download PNG</button>
       <button type="button" class="btn sm" id="dPngAll" title="Every slide except the project list">All slides as PNG</button>
       <button type="button" class="btn sm" id="dPresent">Present</button>
@@ -71,6 +72,22 @@
     </div>
     <p class="msg dedit" id="dEditNote" hidden>Editing: click any word or number on a slide and type. The changes are only for the picture or print: they are not saved,
       and the slides are drawn again from the register when you change the choice of projects or press <b>Reset to the register</b>.</p>
+    <%-- Photos: the header picture of the slide on screen, from the library (assets/img) or uploaded; kept in this browser only --%>
+    <div class="phpanel" id="phPanel" hidden>
+      <div class="phhead">
+        <b id="phFor"></b>
+        <button type="button" class="btn sm" id="phShuffle" title="A different photo on each visual slide">Shuffle</button>
+        <button type="button" class="btn sm" id="phDefault">Default photos</button>
+        <button type="button" class="btn sm" id="phUpload">Upload photos…</button>
+        <input type="file" id="phFile" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <button type="button" class="btn sm" id="phClose" aria-label="Close">×</button>
+      </div>
+      <p class="note" id="phMsg" role="status"></p>
+      <h3 class="phh">Uploaded in this browser</h3>
+      <div class="phgrid" id="phUp"></div>
+      <h3 class="phh">Library</h3>
+      <div class="phgrid" id="phLib"></div>
+    </div>
     <nav class="dstrip" id="dStrip" aria-label="Slides"></nav>
     <div class="deck" id="dDeck"></div>
     <p id="pdfMsg" class="msg" role="status" hidden></p>

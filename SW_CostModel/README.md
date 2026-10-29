@@ -102,7 +102,10 @@ in-progress and all projects, and by Business KPI), effort, status, dates (time 
 (man-hours saved → FTE at 2,740 h, downtime avoided, energy saved, ₹ value a year by category). A figure that nobody has recorded shows as 0 with a note.
 **Edit** lets you change any word or number on the slides before taking the picture (it is not saved; **Reset to the register** or changing the choice
 draws the slides again). **Download PNG** saves the slide on screen as a 1920 x 1080 picture to paste into PowerPoint; **All slides as PNG** saves every
-slide but the project list. The header photos are files in `web/assets/img`.
+slide but the project list. **Photos** chooses the header photo of the slide on screen from the library (42 plant photos in `web/assets/img`),
+**Shuffle** gives each visual slide a different one, and **Upload photos…** adds your own (JPEG, PNG or WebP, made smaller to at most 1,600 px wide).
+The choice and the uploads are kept in that browser only (up to 12 uploads); nothing is sent to the server. To add photos for everyone, copy them into
+`web/assets/img` and add their names to `LIBRARY` in `assets/js/dashboard-visual.js`.
 
 Project dates: **Start date** and **End date** on the Registration Basics step (empty end = still running), two optional last columns in the Excel template and the CSV,
 and `database\08_project_dates.sql` for the imported project list.

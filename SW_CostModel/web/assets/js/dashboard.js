@@ -232,7 +232,7 @@ function slideList(L){
 function allTitles(){return V.TITLES.concat(TITLES);}
 function paintDeck(){
   var L=chosen(),makers=[slideSummary,slideMoney,slideEffort,slideValue,slideList],T=allTitles();
-  var x={esc:esc,num:num,L:L,cats:CATS,period:F.from||F.to?periodText():'All dates',
+  var x={esc:esc,num:num,L:L,cats:CATS,photo:photoOf,period:F.from||F.to?periodText():'All dates',
     choiceNote:(F.ids.length?'projects chosen':'')+(F.ver?(F.ids.length?', ':'')+'verified only':'')};
   var vis=V.TITLES.map(function(t,i){
     var html;try{html=V.make(i,x);}catch(err){html='<p class="empty">This slide could not be drawn: '+esc(err.message)+'</p>';}
@@ -252,7 +252,7 @@ function paintPos(){
   $('#dPrev').disabled=SLIDE===0;$('#dNext').disabled=SLIDE===T.length-1;
 }
 function $$(s){return Array.prototype.slice.call(document.querySelectorAll(s));}
-function go(i){SLIDE=Math.max(0,Math.min(allTitles().length-1,i));paintPos();}
+function go(i){SLIDE=Math.max(0,Math.min(allTitles().length-1,i));paintPos();paintPhotos();}
 function changed(){saveChoice();paintFilter();paintDeck();}
 
 /* ---------- Edit: change the words and numbers of the slides in place, for a picture; nothing is saved ---------- */
@@ -264,6 +264,72 @@ function setEditing(on){
   $('#dReset').hidden=!on&&!EDITED;
   $('#dEditNote').hidden=!on;
 }
+/* ---------- Photos: the header picture of each visual slide, from the library (assets/img) or uploaded in this browser ---------- */
+/* The choice ('lib:<file>' or 'up:<id>' per slide) and the uploads are kept in this browser only; nothing is sent to the server. */
+var PH_KEY='ca-dashboard.photos',UP_KEY='ca-dashboard.uploads',MAX_UPLOADS=12;
+var PH={choice:[],uploads:[]};
+function readPhotos(){
+  try{var c=JSON.parse(localStorage.getItem(PH_KEY)||'[]');PH.choice=Array.isArray(c)?c:[];}catch(e){PH.choice=[];}
+  try{var u=JSON.parse(localStorage.getItem(UP_KEY)||'[]');PH.uploads=Array.isArray(u)?u.filter(function(x){return x&&x.id&&/^data:image\/(jpeg|png|webp);base64,/.test(x.data||'');}):[];}catch(e){PH.uploads=[];}
+}
+function savePhotos(){try{localStorage.setItem(PH_KEY,JSON.stringify(PH.choice));}catch(e){}}
+function srcOf(ref){
+  if(!ref)return null;
+  if(ref.indexOf('lib:')===0){var f=ref.slice(4);return V.LIBRARY.indexOf(f)>=0?'assets/img/'+f:null;}
+  if(ref.indexOf('up:')===0){var u=PH.uploads.filter(function(x){return 'up:'+x.id===ref;})[0];return u?u.data:null;}
+  return null;
+}
+function photoOf(i){return srcOf(PH.choice[i])||'assets/img/'+V.PHOTO[i];}
+/* change a slide's photo in place, so words changed with Edit stay */
+function setPhoto(i,ref){
+  PH.choice[i]=ref;savePhotos();
+  var el=$$('#dDeck .slide')[i];el=el&&el.querySelector('.vphoto');if(el)el.setAttribute('style',V.photoStyle(photoOf(i)));
+  paintPhotos();
+}
+function phTarget(){return SLIDE<NV?SLIDE:0;}
+function paintPhotos(){
+  var box=$('#phPanel');if(!box||box.hidden)return;
+  var i=phTarget(),cur=PH.choice[i]||'lib:'+V.PHOTO[i];
+  $('#phFor').textContent='Photo for slide '+(i+1)+': '+V.TITLES[i]+(SLIDE>=NV?' (the data slides have no photo)':'');
+  var tile=function(ref,src,label,removable){return '<button type="button" class="phtile'+(ref===cur?' on':'')+'" data-photo="'+esc(ref)+'" title="'+esc(label)+'" aria-pressed="'+(ref===cur)+'">'+
+    '<img src="'+esc(src)+'" alt="'+esc(label)+'" loading="lazy">'+(removable?'<span class="phx" data-unphoto="'+esc(ref)+'" role="button" aria-label="Remove '+esc(label)+'">×</span>':'')+'</button>';};
+  $('#phUp').innerHTML=PH.uploads.length?PH.uploads.map(function(u){return tile('up:'+u.id,u.data,u.name||'Uploaded photo',true);}).join(''):'<p class="note">No photos uploaded in this browser yet.</p>';
+  $('#phLib').innerHTML=V.LIBRARY.map(function(f){return tile('lib:'+f,'assets/img/'+f,f,false);}).join('');
+}
+function openPhotos(show){var p=$('#phPanel');p.hidden=!show;$('#dPhotos').setAttribute('aria-expanded',String(show));if(show)paintPhotos();}
+function shufflePhotos(){
+  var pool=V.LIBRARY.map(function(f){return 'lib:'+f;}).concat(PH.uploads.map(function(u){return 'up:'+u.id;}));
+  for(var k=pool.length-1;k>0;k--){var r=Math.floor(Math.random()*(k+1)),t=pool[k];pool[k]=pool[r];pool[r]=t;}
+  for(var i=0;i<NV;i++)setPhoto(i,pool[i%pool.length]);
+}
+/* an uploaded picture is made smaller (at most 1600 px wide, JPEG) so that several fit in the browser's storage */
+function uploadPhotos(files){
+  var msg=$('#phMsg');msg.textContent='';
+  var list=Array.prototype.slice.call(files||[]).filter(function(f){return /^image\//.test(f.type);});
+  if(!list.length){msg.textContent='Choose picture files (JPEG, PNG or WebP).';return;}
+  var done=list.reduce(function(p,f){return p.then(function(){return new Promise(function(ok){
+    var img=new Image(),rd=new FileReader();   // read as data: (the site's Content-Security-Policy allows data: pictures, not blob:)
+    img.onload=function(){
+      var w=Math.min(1600,img.naturalWidth),h=Math.round(img.naturalHeight*w/img.naturalWidth),c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      var item={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:f.name.slice(0,80),data:c.toDataURL('image/jpeg',0.82)};
+      var next=PH.uploads.concat([item]).slice(-MAX_UPLOADS);
+      try{localStorage.setItem(UP_KEY,JSON.stringify(next));PH.uploads=next;setPhoto(phTarget(),'up:'+item.id);}
+      catch(e){msg.textContent='"'+f.name+'" could not be kept: the browser storage is full. Remove an uploaded photo and try again.';}
+      ok();
+    };
+    img.onerror=rd.onerror=function(){msg.textContent='"'+f.name+'" is not a picture this browser can read.';ok();};
+    rd.onload=function(){img.src=rd.result;};rd.readAsDataURL(f);
+  });});},Promise.resolve());
+  done.then(function(){$('#phFile').value='';paintPhotos();});
+}
+function removeUpload(ref){
+  PH.uploads=PH.uploads.filter(function(u){return 'up:'+u.id!==ref;});
+  try{localStorage.setItem(UP_KEY,JSON.stringify(PH.uploads));}catch(e){}
+  for(var i=0;i<NV;i++)if(PH.choice[i]===ref)setPhoto(i,null);
+  paintPhotos();
+}
+
 /* ---------- download a slide as a picture (1920 x 1080 PNG) ---------- */
 var h2cPromise=null;
 function h2c(){
@@ -320,6 +386,13 @@ document.addEventListener('click',function(e){
   if(t.id==='dPngAll'){downloadPng(allTitles().map(function(x,i){return i;}).filter(function(i){return i!==allTitles().length-1;}));return;}
   if(t.id==='dEdit'){setEditing(!EDITING);if(EDITING){var on=$('#dDeck .slide.on');if(on)on.focus();}return;}
   if(t.id==='dReset'){paintDeck();return;}
+  if(t.id==='dPhotos'){openPhotos($('#phPanel').hidden);return;}
+  if(t.id==='phClose'){openPhotos(false);return;}
+  if(t.id==='phShuffle'){shufflePhotos();return;}
+  if(t.id==='phDefault'){for(var k=0;k<NV;k++)setPhoto(k,null);return;}
+  if(t.id==='phUpload'){$('#phFile').click();return;}
+  if(e.target.dataset&&e.target.dataset.unphoto){removeUpload(e.target.dataset.unphoto);return;}
+  if(t.dataset.photo){setPhoto(phTarget(),t.dataset.photo);return;}
   if(t.closest('#dDeck')&&EDITING)return;   // a click while editing places the cursor, nothing else
   if(t.id==='dPickBtn'){var p=$('#dPanel'),open=p.hidden;p.hidden=!open;t.setAttribute('aria-expanded',String(open));if(open)$('#dSearch').focus();return;}
   if(t.id==='dAll'){var have={};F.ids.forEach(function(i){have[i]=1;});$$('#dList [data-pick]').forEach(function(c){if(!have[c.dataset.pick]){F.ids.push(c.dataset.pick);have[c.dataset.pick]=1;}});changed();return;}
@@ -345,6 +418,7 @@ document.addEventListener('change',function(e){
     changed();return;
   }
   if(t.id==='dUndated'){F.undated=t.checked;changed();return;}
+  if(t.id==='phFile'){uploadPhotos(t.files);return;}
   if(t.id==='dVer'){F.ver=t.checked;changed();return;}
 });
 document.addEventListener('input',function(e){
@@ -382,6 +456,7 @@ load().then(function(j){
   if(ME.isAdmin===false){say('Only admins see the dashboard: it shows the costs of every project.');return;}
   ALL=((j.projects)||[]).map(shape);
   CATS=j.valueCats||{};
+  readPhotos();
   readChoice();
   say('');$('#dApp').hidden=false;
   paintFilter();paintDeck();
