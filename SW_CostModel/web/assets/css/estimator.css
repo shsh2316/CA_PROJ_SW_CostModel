@@ -282,6 +282,39 @@ td.acts{white-space:nowrap}
 .rc>summary{cursor:pointer;font-weight:600;color:var(--steel);min-height:38px;display:flex;align-items:center}
 .rc .ctl{display:flex;flex-wrap:wrap;gap:4px 22px}
 
+/* report list (project_report.aspx): readable at every width.
+   Wide and medium screens: the table keeps its natural width and scrolls inside its box (project name and header row stay in view);
+   phones: one card per project, each value with its column name. Words break only at spaces, never in the middle. */
+.btn{white-space:nowrap}
+.tw.tall{max-height:78vh;overflow:auto}
+table.rep{min-width:1100px}
+table.rep th{white-space:normal;vertical-align:bottom;line-height:1.25;padding:8px 7px;min-width:4.5em;position:sticky;top:0;z-index:2;background:var(--steel-soft);color:var(--ink);font-weight:600;border-bottom:1px solid var(--line)}
+table.rep td{white-space:normal;overflow-wrap:normal;word-break:normal;padding:8px 7px}
+table.rep td.num{white-space:nowrap}
+table.rep td[data-label="Financial year"]{white-space:nowrap}
+table.rep th.num,table.rep td.num{text-align:right;font-variant-numeric:tabular-nums}
+table.rep th:first-child{left:0;z-index:3;min-width:14em}
+table.rep td.c-title{white-space:normal;overflow-wrap:break-word;width:17em;min-width:14em;max-width:17em;position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--line)}
+table.rep td.c-act{text-align:right}
+table.rep tr.total td{background:var(--steel-soft)}
+@media (max-width:767px){
+  .tw.tall{max-height:none;overflow:visible;border:0;background:transparent}
+  table.rep{min-width:0;display:block}
+  table.rep thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  table.rep tbody{display:block}
+  table.rep tr{display:block;border:1px solid var(--line);border-radius:4px;background:var(--surface);margin:0 0 10px;padding:8px 12px}
+  table.rep td{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border:0;padding:3px 0;white-space:normal;text-align:right;position:static;box-shadow:none;min-width:0;max-width:none;background:transparent}
+  table.rep td:empty{display:none}
+  table.rep td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:400;text-align:left;flex:none;max-width:48%}
+  table.rep td.c-title{display:block;width:auto;min-width:0;max-width:none;text-align:left;font-size:16px;font-weight:600;padding:0 0 6px;margin:0 0 4px;border-bottom:1px solid var(--line)}
+  table.rep td.c-title::before,table.rep td.c-act::before{content:none}
+  table.rep td.c-act{display:block;padding-top:8px}
+  table.rep td.c-act .btn{width:100%}
+  table.rep tr.total{background:var(--steel-soft)}
+  table.rep tr.total td.c-act{display:none}
+  .tw tr.total td{border-top:0}
+  .tw tr.total td.c-title{border-bottom:1px solid var(--line)}
+}
 @media print{
   @page{size:A4;margin:14mm}
   :root{padding:0!important}
@@ -295,4 +328,6 @@ td.acts{white-space:nowrap}
   .paper h3{break-after:avoid}
   .tw{overflow:visible;border:0}
   .tw table{min-width:0}
+  .tw.tall{max-height:none;overflow:visible}
+  table.rep{min-width:0}table.rep th,table.rep td{position:static;box-shadow:none}
 }

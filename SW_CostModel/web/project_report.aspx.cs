@@ -155,7 +155,8 @@ public partial class ProjectReportPage : Page
         }
 
         List<Col> cols = Visible(true);
-        sb.Append("<div class=\"tw\"><table><thead><tr>");
+        // class "rep" and the data-label on every cell are for the responsive layout (assets/css/estimator.css, "report list"): sideways scroll with a sticky first column on tablets, one card per project on phones
+        sb.Append("<div class=\"tw tall\"><table class=\"rep\"><thead><tr>");
         foreach (Col c in cols)
             sb.Append("<th" + NumClass(c) + ">" + H(c.Header) + "</th>");
         sb.Append("<th>Estimate</th></tr></thead><tbody>");
@@ -169,10 +170,10 @@ public partial class ProjectReportPage : Page
                     text = "<a href=\"project_report.aspx?id=" + HttpUtility.UrlEncode(Convert.ToString(r["RegisterId"])) + "\">" + text + "</a>";
                 else if (c.Name == "Workflow")
                     text = "<span class=\"tag " + ReviewTag(Convert.ToString(r[c.Name])) + "\">" + text + "</span>";
-                sb.Append("<td" + NumClass(c) + ">" + text + "</td>");
+                sb.Append(Td(c, text));
             }
             // The estimate itself (the quotation) as a PDF: made in the browser by report-pdf.js from the saved estimate of this entry
-            sb.Append("<td><button type=\"button\" class=\"btn sm\" data-pdf=\"" + H(Convert.ToString(r["RegisterId"])) + "\">PDF</button></td></tr>");
+            sb.Append("<td class=\"c-act\" data-label=\"Estimate\"><button type=\"button\" class=\"btn sm\" data-pdf=\"" + H(Convert.ToString(r["RegisterId"])) + "\">PDF</button></td></tr>");
         }
         if (user.IsAdmin)
         {
@@ -182,9 +183,9 @@ public partial class ProjectReportPage : Page
                 string cell = "";
                 if (c.Name == "ProjectName") cell = "Total";
                 else if (c.Format == Fmt.Money && rows.Columns.Contains(c.Name)) cell = Sum(rows, c.Name);
-                sb.Append("<td" + NumClass(c) + ">" + H(cell) + "</td>");
+                sb.Append(Td(c, H(cell)));
             }
-            sb.Append("<td></td></tr>");
+            sb.Append("<td class=\"c-act\"></td></tr>");
         }
         sb.Append("</tbody></table></div>");
         if (user.IsAdmin)
@@ -416,6 +417,14 @@ public partial class ProjectReportPage : Page
         foreach (DataRow r in rows.Rows)
             if (!(r[column] is DBNull)) total += Convert.ToDecimal(r[column], CultureInfo.InvariantCulture);
         return total.ToString("N0", Inr);
+    }
+
+    /// <summary>One list cell: its alignment class, the title class for the project name, and the column name as data-label (shown beside the value on phones).</summary>
+    static string Td(Col c, string html)
+    {
+        string cls = (c.Format == Fmt.Money || c.Format == Fmt.Number ? "num " : "") + (c.Name == "ProjectName" ? "c-title" : "");
+        cls = cls.Trim();
+        return "<td" + (cls.Length > 0 ? " class=\"" + cls + "\"" : "") + " data-label=\"" + H(c.Header) + "\">" + html + "</td>";
     }
 
     static string NumClass(Col c)
