@@ -12,8 +12,10 @@ using System.Web.Security;
 /// Default.aspx is the login page: any user name, one password (appSettings LoginPasswordSha256 holds its SHA-256,
 /// so the password itself is not stored). A correct password sets a signed and encrypted cookie (machine key);
 /// this module reads the cookie on each request. Without it, pages redirect to the login page and the API answers
-/// 401 with JSON. Whoever signs in is an admin (see CurrentUser): there are no other roles.
-/// The cookie holds only the typed name and an expiry time. Use HTTPS so the password and cookie are not readable on the network.
+/// 401 with JSON. Whoever signs in is an admin (see CurrentUser).
+/// One more role: the dashboard administrator (appSettings DashboardAdminUser, with its own password, DashboardAdminPasswordSha256).
+/// Only that sign-in opens the Dashboard; the name is reserved, so the shared password does not open it.
+/// The cookie holds only the typed name, the role and an expiry time. Use HTTPS so the password and cookie are not readable on the network.
 /// </summary>
 public sealed class LoginModule : IHttpModule
 {
@@ -21,6 +23,7 @@ public sealed class LoginModule : IHttpModule
     const string CookieName = "CA_LOGIN";
     const string Purpose = "CA_LOGIN v2";
     public const string LoginPath = "~/Default.aspx";
+    public const string DashboardRole = "dashboard";
 
     public void Init(HttpApplication app)
     {
@@ -54,10 +57,11 @@ public sealed class LoginModule : IHttpModule
     static void OnAuthenticateRequest(object sender, EventArgs e)
     {
         HttpContext ctx = ((HttpApplication)sender).Context;
-        string user = ReadCookie(ctx.Request);
+        bool dashboardAdmin;
+        string user = ReadCookie(ctx.Request, out dashboardAdmin);
         if (user != null)
         {
-            ctx.User = new GenericPrincipal(new GenericIdentity(user, AuthType), new string[0]);
+            ctx.User = new GenericPrincipal(new GenericIdentity(user, AuthType), dashboardAdmin ? new[] { DashboardRole } : new string[0]);
             return;
         }
         string path = ctx.Request.AppRelativeCurrentExecutionFilePath ?? "~/";
@@ -105,7 +109,35 @@ public sealed class LoginModule : IHttpModule
     /// <summary>True when the password matches appSettings LoginPasswordSha256. Not configured: nobody gets in.</summary>
     public static bool CheckPassword(string password)
     {
-        string expected = Setting("LoginPasswordSha256").ToLowerInvariant();
+        return Matches(password, Setting("LoginPasswordSha256"));
+    }
+
+    /// <summary>The dashboard administrator's user name (appSettings DashboardAdminUser), or "" when there is none.</summary>
+    public static string DashboardAdminUser { get { return Setting("DashboardAdminUser"); } }
+
+    /// <summary>True when the name typed at the login page is the dashboard administrator's (any case, spaces trimmed).</summary>
+    public static bool IsDashboardAdminName(string name)
+    {
+        string admin = DashboardAdminUser;
+        return admin.Length > 0 && String.Equals(CleanName(name), admin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>True when the password matches appSettings DashboardAdminPasswordSha256. Not configured: nobody is the administrator.</summary>
+    public static bool CheckDashboardAdminPassword(string password)
+    {
+        return DashboardAdminUser.Length > 0 && Matches(password, Setting("DashboardAdminPasswordSha256"));
+    }
+
+    /// <summary>True when this request is signed in as the dashboard administrator.</summary>
+    public static bool IsDashboardAdmin(HttpContext ctx)
+    {
+        return ctx != null && ctx.User != null && ctx.User.Identity != null && ctx.User.Identity.IsAuthenticated &&
+            ctx.User.Identity.AuthenticationType == AuthType && ctx.User.IsInRole(DashboardRole);
+    }
+
+    static bool Matches(string password, string expected)
+    {
+        expected = (expected ?? "").ToLowerInvariant();
         if (expected.Length == 0 || password == null) return false;
         string hash;
         using (SHA256 sha = SHA256.Create())
@@ -172,17 +204,18 @@ public sealed class LoginModule : IHttpModule
     /* ---------- cookie ---------- */
 
     /// <summary>The first characters of the configured password hash: a sign-in made with an older password stops working when the password changes.</summary>
-    static string PasswordTag()
+    static string PasswordTag(bool dashboardAdmin)
     {
-        string h = Setting("LoginPasswordSha256").ToLowerInvariant();
+        string h = Setting(dashboardAdmin ? "DashboardAdminPasswordSha256" : "LoginPasswordSha256").ToLowerInvariant();
         return h.Length > 12 ? h.Substring(0, 12) : h;
     }
 
-    /// <summary>Signs the person in: any name is accepted, it is only recorded as who submitted and approved entries.</summary>
-    public static void SignIn(HttpContext ctx, string name)
+    /// <summary>Signs the person in: any name is accepted, it is only recorded as who submitted and approved entries.
+    /// dashboardAdmin: signed in with the dashboard administrator's name and password.</summary>
+    public static void SignIn(HttpContext ctx, string name, bool dashboardAdmin)
     {
         name = CleanName(name);
-        string ticket = "v2|" + DateTime.UtcNow.AddHours(SessionHours).Ticks + "|" + PasswordTag() + "|" + name;
+        string ticket = "v3|" + DateTime.UtcNow.AddHours(SessionHours).Ticks + "|" + PasswordTag(dashboardAdmin) + "|" + (dashboardAdmin ? "a" : "u") + "|" + name;
         byte[] protectedBytes = MachineKey.Protect(Encoding.UTF8.GetBytes(ticket), Purpose);
         var cookie = new HttpCookie(CookieName, HttpServerUtility.UrlTokenEncode(protectedBytes))
         {
@@ -202,21 +235,28 @@ public sealed class LoginModule : IHttpModule
         ctx.Response.Cookies.Add(cookie);
     }
 
-    /// <summary>The signed-in name from the cookie, or null when there is no valid, unexpired cookie.</summary>
-    static string ReadCookie(HttpRequest request)
+    /// <summary>The signed-in name from the cookie, or null when there is no valid, unexpired cookie; dashboardAdmin: signed in as the dashboard administrator.</summary>
+    static string ReadCookie(HttpRequest request, out bool dashboardAdmin)
     {
+        dashboardAdmin = false;
         HttpCookie cookie = request.Cookies[CookieName];
         if (cookie == null || String.IsNullOrEmpty(cookie.Value)) return null;
         try
         {
             byte[] bytes = MachineKey.Unprotect(HttpServerUtility.UrlTokenDecode(cookie.Value), Purpose);
             if (bytes == null) return null;
-            string[] parts = Encoding.UTF8.GetString(bytes).Split(new[] { '|' }, 4);
+            // v3|expires|password tag|role (a = dashboard administrator, u = everyone else)|name; an older v2 cookie has no role
+            string[] parts = Encoding.UTF8.GetString(bytes).Split(new[] { '|' }, 5);
             long expires;
-            if (parts.Length != 4 || parts[0] != "v2" || !Int64.TryParse(parts[1], out expires)) return null;
+            bool v3 = parts.Length == 5 && parts[0] == "v3", v2 = parts.Length >= 4 && parts[0] == "v2";
+            if ((!v3 && !v2) || !Int64.TryParse(parts[1], out expires)) return null;
             if (expires < DateTime.UtcNow.Ticks) return null;
-            if (!String.Equals(parts[2], PasswordTag(), StringComparison.Ordinal)) return null;   // the password was changed since
-            return CleanName(parts[3]);
+            bool admin = v3 && parts[3] == "a";
+            string name = CleanName(v3 ? parts[4] : String.Join("|", parts, 3, parts.Length - 3));
+            if (!String.Equals(parts[2], PasswordTag(admin), StringComparison.Ordinal)) return null;   // the password was changed since
+            if (admin != IsDashboardAdminName(name)) return null;   // the administrator's name was changed since, or a reserved name without its password
+            dashboardAdmin = admin;
+            return name;
         }
         catch (Exception)
         {

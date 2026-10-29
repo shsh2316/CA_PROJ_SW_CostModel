@@ -85,7 +85,7 @@ value is totalled by financial year on the Approval page and in `dbo.vw_SwYearly
 
 ## Dashboard
 
-**Dashboard** in the menu (`project_dashboard.aspx`, admins) shows the register as a deck of five slides: **Summary**, **Money** (in-house against the
+**Dashboard** in the menu (`project_dashboard.aspx`, only for the dashboard administrator: `DashboardAdminUser` with its own password, `DashboardAdminPasswordSha256` in `Web.config`) shows the register as a deck of five slides: **Summary**, **Money** (in-house against the
 software-company benchmark by financial year, project type and department), **Effort / FTE** (1 FTE = 2,740 hours), **Value** (value a year, return and
 payback) and the **project list** with a PDF of each estimate.
 

@@ -216,6 +216,12 @@ Current Edge, Chrome or Firefox 126 or later. Internet Explorer is not supported
    on a database without them. Then run `08_project_dates.sql` for the dates of the imported project list. Rebuild and publish (C# files changed), copy the new pages
    (`project_dashboard.aspx`, `assets/js/dashboard.js`, `assets/css/dashboard-print.css`). The project CSV for script `05` now has 34 columns (Start date, End date at the end):
    an older 32-column CSV is rejected with a message; add the two columns (they may be empty).
+   **v10 Dashboard administrator**: the Dashboard opens only for the administrator. Add these two lines to the server's own `Web.config`
+   `<appSettings>` (copy them from the repository's `Web.config`: the password is stored only as its SHA-256):
+   `<add key="DashboardAdminUser" value="rakeshbs" />` and `<add key="DashboardAdminPasswordSha256" value="…" />`.
+   Sign in with that user name and its own password to see the Dashboard (link and page); everyone else signs in as before with the shared password
+   and does not see it. That user name is reserved: the shared password does not sign it in. To change the administrator's password, put the SHA-256
+   of the new one in `DashboardAdminPasswordSha256` (PowerShell line in `Web.config`); signed-in administrator sessions then end.
    **v10 visual slides**: copy `assets/img` (the header photos), `assets/js/dashboard-visual.js` and `assets/css/dashboard-visual.css`. No database change:
    the slides are worked out from the register (the benefits come from each entry's saved estimate).
 4. Browse to the site once (the first request is slow while IIS compiles the page markup). Browsers pick up the new files on the next

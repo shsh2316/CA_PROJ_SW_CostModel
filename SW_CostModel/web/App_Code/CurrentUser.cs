@@ -15,6 +15,7 @@ public sealed class CurrentUser
     public string DisplayName { get; private set; }
     public bool IsAdmin { get; private set; }
     public bool CanSelfVerify { get; private set; }    // may verify an entry they submitted themselves (shared login)
+    public bool IsDashboardAdmin { get; private set; } // signed in as the dashboard administrator (LoginModule): the only one who opens the Dashboard
 
     public bool IsSignedIn { get { return !String.IsNullOrEmpty(Login); } }
 
@@ -49,6 +50,7 @@ public sealed class CurrentUser
             // The one shared login is the admin: there are no other people or roles.
             u.IsAdmin = true;
             u.CanSelfVerify = LoginModule.AllowSelfVerification;
+            u.IsDashboardAdmin = p.IsInRole(LoginModule.DashboardRole);
         }
         return u;
     }

@@ -86,6 +86,7 @@ public class EstimatorApi : IHttpHandler
                 string sig = ProjectRepository.Signature(user);
                 // lite=1 (dashboard): the entries without each saved estimate, which is most of the size
                 bool lite = req.QueryString["lite"] == "1";
+                if (lite && !user.IsDashboardAdmin) throw new ApiException(403, "forbidden", "Only the administrator can open the dashboard.");
                 if (!lite && req.QueryString["sig"] == sig) return new Dictionary<string, object> { { "unchanged", true }, { "sig", sig } };
                 Dictionary<string, object> reg = ProjectRepository.ListWithSignature(user, sig, !lite);
                 if (lite)

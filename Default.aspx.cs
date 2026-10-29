@@ -41,10 +41,12 @@ public partial class LoginPage : Page
                 return;
             }
             string user = Request.Form["user"] ?? "";
-            if (LoginModule.CheckPassword(Request.Form["password"]))
+            // The dashboard administrator's name is reserved: it signs in only with its own password, never with the shared one.
+            bool admin = LoginModule.IsDashboardAdminName(user);
+            if (admin ? LoginModule.CheckDashboardAdminPassword(Request.Form["password"]) : LoginModule.CheckPassword(Request.Form["password"]))
             {
                 LoginModule.RegisterSuccess(address);
-                LoginModule.SignIn(Context, user);
+                LoginModule.SignIn(Context, user, admin);
                 Response.Redirect(ReturnTarget(), false);
                 Context.ApplicationInstance.CompleteRequest();
                 return;
@@ -52,6 +54,13 @@ public partial class LoginPage : Page
             LoginModule.RegisterFailure(address);
             UserValue = user.Length > 100 ? user.Substring(0, 100) : user;
             MessageHtml = "Incorrect password.";
+            return;
+        }
+
+        // Sent here by the Dashboard: it needs the administrator's sign-in, so do not go straight back.
+        if (Request.QueryString["admin"] == "1" && !LoginModule.IsDashboardAdmin(Context))
+        {
+            MessageHtml = "The Dashboard is for the administrator. Sign in with the administrator's user name and password.";
             return;
         }
 
