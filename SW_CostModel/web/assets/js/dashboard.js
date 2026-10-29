@@ -2,8 +2,9 @@
    Choose a period (projects active in it, by their start and end dates), the review state, and any number of projects; every slide follows the choice.
    Data: api/estimator.ashx?action=projects&lite=1 (the entries without their saved estimates). Figures are the register's recorded values,
    the same as the Approval totals and the report. Charts are drawn here as inline SVG: no library, nothing from the internet.
-   The deck opens with five visual slides (assets/js/dashboard-visual.js) whose stated figures, the "highlights", admins edit here;
-   any slide downloads as a 1920 x 1080 picture for a presentation (html2canvas, loaded on the first download). */
+   The deck opens with five visual slides (assets/js/dashboard-visual.js), worked out from the same projects. "Edit" lets the text and numbers
+   of the slides be changed in place for a picture (not saved: the slides are drawn again from the register when the choice changes or on "Reset").
+   Any slide downloads as a 1920 x 1080 picture for a presentation (html2canvas, loaded on the first download). */
 (function(){
 'use strict';
 
@@ -15,7 +16,7 @@ var STAT={planned:'Planned',progress:'In progress',completed:'Completed'};
 var WF={pending:'Awaiting verification',info:'Needs information',verified:'Verified'};
 var ALL=[],F={from:'',to:'',undated:true,ver:false,ids:[],q:''},SLIDE=0,ME={};
 var V=window.CADashVisual,NV=V.TITLES.length;   // the visual slides come first
-var HL=null,HL_SAVED=null,HL_META=null,HL_DIRTY=false;   // highlights: as shown (maybe being edited), as saved, who saved them
+var CATS={},EDITING=false,EDITED=false;   // value categories (names); the Edit mode, and whether anything was changed in it
 
 function $(s){return document.querySelector(s);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
@@ -43,7 +44,7 @@ function shape(d){
   return {id:d._id,name:d.name||'',dept:d.department||'Not given',fy:d.fy||'',kind:d.kind,status:d.status,type:d.type||'',wf:d.wf||'pending',
     start:d.start||'',end:d.end||'',costed:d.costed!==false,
     a:+d.value||0,b:d.valueB!=null?+d.valueB:(+d.value||0),oneTime:+d.oneTime||0,yearly:+d.yearly||0,pd:+d.personDays||0,team:+d.team||0,
-    valY:+d.valueYearly||0,valO:+d.valueOnce||0,note:d.note||''};
+    valY:+d.valueYearly||0,valO:+d.valueOnce||0,note:d.note||'',benefits:Array.isArray(d.benefits)?d.benefits:[]};
 }
 
 /* ---------- the choice ---------- */
@@ -231,7 +232,7 @@ function slideList(L){
 function allTitles(){return V.TITLES.concat(TITLES);}
 function paintDeck(){
   var L=chosen(),makers=[slideSummary,slideMoney,slideEffort,slideValue,slideList],T=allTitles();
-  var x={esc:esc,num:num,L:L,hl:HL||V.DEFAULTS,period:F.from||F.to?periodText():'All dates',
+  var x={esc:esc,num:num,L:L,cats:CATS,period:F.from||F.to?periodText():'All dates',
     choiceNote:(F.ids.length?'projects chosen':'')+(F.ver?(F.ids.length?', ':'')+'verified only':'')};
   var vis=V.TITLES.map(function(t,i){
     var html;try{html=V.make(i,x);}catch(err){html='<p class="empty">This slide could not be drawn: '+esc(err.message)+'</p>';}
@@ -239,6 +240,7 @@ function paintDeck(){
   var data=makers.map(function(m,i){return '<section class="slide'+(i+NV===SLIDE?' on':'')+'" aria-label="Slide '+(i+1+NV)+': '+esc(TITLES[i])+'">'+
     (L.length||i===0?m(L):head(i,L)+'<p class="empty">No projects in this choice.</p>')+'</section>';});
   $('#dDeck').innerHTML=vis.concat(data).join('');
+  EDITED=false;setEditing(EDITING);
   if(!L.length)$$('#dDeck .slide')[NV].insertAdjacentHTML('beforeend','<p class="empty">No projects match: widen the period, include projects without dates, or clear the project choice.</p>');
   paintPos();
 }
@@ -253,77 +255,15 @@ function $$(s){return Array.prototype.slice.call(document.querySelectorAll(s));}
 function go(i){SLIDE=Math.max(0,Math.min(allTitles().length-1,i));paintPos();}
 function changed(){saveChoice();paintFilter();paintDeck();}
 
-/* ---------- highlights: the stated figures of the visual slides ---------- */
-function clone(o){return JSON.parse(JSON.stringify(o));}
-/* the saved document over the example: a section or field that was never saved shows the example's */
-function withDefaults(doc){
-  var out=clone(V.DEFAULTS);doc=doc&&typeof doc==='object'?doc:{};
-  Object.keys(out).forEach(function(k){if(doc[k]&&typeof doc[k]==='object')Object.keys(doc[k]).forEach(function(f){out[k][f]=doc[k][f];});});
-  return out;
+/* ---------- Edit: change the words and numbers of the slides in place, for a picture; nothing is saved ---------- */
+function setEditing(on){
+  EDITING=on;
+  $$('#dDeck .slide').forEach(function(sl){if(on)sl.setAttribute('contenteditable','true');else sl.removeAttribute('contenteditable');sl.setAttribute('spellcheck','false');});
+  $('#dDeck').classList.toggle('editing',on);
+  var b=$('#dEdit');b.setAttribute('aria-pressed',String(on));b.textContent=on?'Done editing':'Edit';
+  $('#dReset').hidden=!on&&!EDITED;
+  $('#dEditNote').hidden=!on;
 }
-function api(action,body){
-  var o={credentials:'same-origin',cache:'no-store',headers:{'X-Requested-With':'XMLHttpRequest'}};
-  if(body){o.method='POST';o.headers['Content-Type']='application/json';o.body=JSON.stringify(body);}
-  return fetch(API+'?action='+action,o).then(function(r){return r.json().catch(function(){return null;}).then(function(j){
-    if(!j||!r.ok||j.error)throw new Error((j&&j.error&&j.error.message)||'The server did not answer ('+r.status+').');return j;});});
-}
-function loadHighlights(){
-  return api('highlights').then(function(j){
-    var h=j.highlights;HL_META=h?{by:h.by,at:h.at}:null;HL_SAVED=withDefaults(h&&h.doc);HL=clone(HL_SAVED);
-  }).catch(function(err){
-    HL_SAVED=withDefaults(null);HL=clone(HL_SAVED);HL_META={error:err.message};
-  });
-}
-function hlStatus(text){
-  var el=$('#hlStat');if(!el)return;
-  if(text){el.textContent=text;return;}
-  el.textContent=HL_META&&HL_META.error?'The saved highlights could not be read ('+HL_META.error+'). Showing the example; saving needs database script 02 run once.':
-    (HL_DIRTY?'Changes not saved yet. ':'')+(HL_META&&HL_META.at?'Last saved by '+HL_META.by+', '+new Date(HL_META.at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})+'.':'Showing the example highlights: change them and save to keep your own.');
-}
-function getPath(path){var a=path.split('.'),o=HL;for(var i=0;i<a.length;i++){if(o==null)return undefined;o=o[a[i]];}return o;}
-function setPath(path,v){var a=path.split('.'),o=HL;for(var i=0;i<a.length-1;i++){if(o[a[i]]==null)o[a[i]]={};o=o[a[i]];}o[a[a.length-1]]=v;}
-function fieldHtml(sec,f){
-  var path=sec.key+'.'+f[0],v=getPath(path),label='<span class="fl">'+esc(f[1])+'</span>';
-  if(f[2]==='long')return '<label class="f">'+label+'<textarea data-hl="'+path+'">'+esc(v||'')+'</textarea></label>';
-  if(f[2]==='num')return '<label class="f">'+label+'<input type="number" step="any" data-hl="'+path+'" data-num="1" value="'+esc(v==null?'':v)+'"></label>';
-  if(f[2]==='list')return '<label class="f">'+label+'<textarea data-hl="'+path+'" data-list="1" placeholder="One per line">'+esc((Array.isArray(v)?v:[]).join('\n'))+'</textarea></label>';
-  if(f[2]==='photo'){var opts=V.PHOTOS.slice();if(v&&opts.indexOf(v)<0)opts.push(v);
-    return '<label class="f">'+label+'<select data-hl="'+path+'">'+opts.map(function(o){return '<option value="'+esc(o)+'"'+(o===(v||'')?' selected':'')+'>'+esc(o||'No photo (a drawn background)')+'</option>';}).join('')+'</select></label>';}
-  if(f[2]==='rows'){
-    var rows=Array.isArray(v)?v:[];
-    return '<div class="f">'+label+'<div class="hlrows">'+rows.map(function(r,i){
-      return '<div class="hlrow">'+f[3].map(function(c){
-        var p=path+'.'+i+'.'+c[0],cv=r[c[0]];
-        if(c[2]==='icon')return '<label>'+esc(c[1])+'<select data-hl="'+p+'">'+V.ICONS.map(function(n){return '<option'+(n===cv?' selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';
-        return '<label>'+esc(c[1])+'<input data-hl="'+p+'"'+(c[2]==='num'?' type="number" step="any" data-num="1"':'')+' value="'+esc(cv==null?'':cv)+'"></label>';
-      }).join('')+'<div class="hlrb"><button type="button" class="btn sm" data-hl-act="up" data-hl-path="'+path+'" data-i="'+i+'"'+(i?'':' disabled')+' aria-label="Move up">↑</button>'+
-        '<button type="button" class="btn sm" data-hl-act="down" data-hl-path="'+path+'" data-i="'+i+'"'+(i<rows.length-1?'':' disabled')+' aria-label="Move down">↓</button>'+
-        '<button type="button" class="btn sm" data-hl-act="del" data-hl-path="'+path+'" data-i="'+i+'">Remove</button></div></div>';
-    }).join('')+'<button type="button" class="btn sm" data-hl-act="add" data-hl-path="'+path+'" data-cols="'+esc(f[3].map(function(c){return c[0]+':'+(c[2]||'');}).join(','))+'">+ Add a row</button></div></div>';
-  }
-  return '<label class="f">'+label+'<input data-hl="'+path+'" value="'+esc(v==null?'':v)+'"></label>';
-}
-function paintEditor(){
-  var body=$('#hlBody');if(!body)return;
-  var open={};$$('#hlBody details[open]').forEach(function(d){open[d.dataset.sec]=1;});var keep=body.scrollTop;
-  body.innerHTML=V.SCHEMA.map(function(sec){
-    return '<details data-sec="'+sec.key+'" data-slide="'+sec.slide+'"'+(open[sec.key]?' open':'')+'><summary>'+esc(sec.label)+'</summary><div class="hlsec">'+sec.fields.map(function(f){return fieldHtml(sec,f);}).join('')+'</div></details>';
-  }).join('');
-  body.scrollTop=keep;hlStatus();
-}
-var repaintTimer=0;
-function hlChanged(){HL_DIRTY=true;hlStatus();clearTimeout(repaintTimer);repaintTimer=setTimeout(paintDeck,150);}
-function openEditor(show){
-  var p=$('#hlPanel');if(!p)return;p.hidden=!show;$('#dEdit').setAttribute('aria-expanded',String(show));
-  if(show){paintEditor();var first=$('#hlBody details');if(first&&!$('#hlBody details[open]'))first.open=true;}
-}
-function saveHighlights(){
-  var b=$('#hlSave');b.disabled=true;hlStatus('Saving…');
-  api('saveHighlights',{doc:HL}).then(function(){
-    HL_SAVED=clone(HL);HL_DIRTY=false;HL_META={by:ME.name||ME.id||'you',at:new Date().toISOString()};hlStatus();
-  }).catch(function(err){hlStatus('Not saved: '+err.message);}).then(function(){b.disabled=false;});
-}
-
 /* ---------- download a slide as a picture (1920 x 1080 PNG) ---------- */
 var h2cPromise=null;
 function h2c(){
@@ -345,7 +285,7 @@ function inlineSvg(root){
 function capture(i){
   return h2c().then(function(html2canvas){
     var src=$$('#dDeck .slide')[i],host=document.createElement('div'),c=src.cloneNode(true);
-    host.className='pngHost';c.classList.add('on','cap');c.removeAttribute('aria-label');host.appendChild(c);document.body.appendChild(host);
+    host.className='pngHost';c.classList.add('on','cap');c.removeAttribute('aria-label');c.removeAttribute('contenteditable');host.appendChild(c);document.body.appendChild(host);
     return (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){
       inlineSvg(c);
       var bg=getComputedStyle(c).backgroundColor;
@@ -378,20 +318,9 @@ document.addEventListener('click',function(e){
   if(t.id==='dPrint'){window.print();return;}
   if(t.id==='dPng'){downloadPng([SLIDE]);return;}
   if(t.id==='dPngAll'){downloadPng(allTitles().map(function(x,i){return i;}).filter(function(i){return i!==allTitles().length-1;}));return;}
-  if(t.id==='dEdit'){openEditor($('#hlPanel').hidden);return;}
-  if(t.id==='hlClose'){openEditor(false);return;}
-  if(t.id==='hlSave'){saveHighlights();return;}
-  if(t.id==='hlReset'){HL=clone(HL_SAVED);HL_DIRTY=false;paintEditor();paintDeck();return;}
-  if(t.id==='hlExample'){HL=clone(V.DEFAULTS);hlChanged();paintEditor();return;}
-  if(t.dataset.hlAct){
-    var list=getPath(t.dataset.hlPath);if(!Array.isArray(list)){list=[];setPath(t.dataset.hlPath,list);}
-    var k=+t.dataset.i;
-    if(t.dataset.hlAct==='add'){var row={};t.dataset.cols.split(',').forEach(function(c){var kv=c.split(':');row[kv[0]]=kv[1]==='num'?0:(kv[1]==='icon'?'chart':'');});list.push(row);}
-    else if(t.dataset.hlAct==='del')list.splice(k,1);
-    else if(t.dataset.hlAct==='up'&&k>0)list.splice(k-1,0,list.splice(k,1)[0]);
-    else if(t.dataset.hlAct==='down'&&k<list.length-1)list.splice(k+1,0,list.splice(k,1)[0]);
-    hlChanged();paintEditor();return;
-  }
+  if(t.id==='dEdit'){setEditing(!EDITING);if(EDITING){var on=$('#dDeck .slide.on');if(on)on.focus();}return;}
+  if(t.id==='dReset'){paintDeck();return;}
+  if(t.closest('#dDeck')&&EDITING)return;   // a click while editing places the cursor, nothing else
   if(t.id==='dPickBtn'){var p=$('#dPanel'),open=p.hidden;p.hidden=!open;t.setAttribute('aria-expanded',String(open));if(open)$('#dSearch').focus();return;}
   if(t.id==='dAll'){var have={};F.ids.forEach(function(i){have[i]=1;});$$('#dList [data-pick]').forEach(function(c){if(!have[c.dataset.pick]){F.ids.push(c.dataset.pick);have[c.dataset.pick]=1;}});changed();return;}
   if(t.id==='dNone'||t.id==='dNone2'){F.ids=[];changed();return;}
@@ -418,22 +347,16 @@ document.addEventListener('change',function(e){
   if(t.id==='dUndated'){F.undated=t.checked;changed();return;}
   if(t.id==='dVer'){F.ver=t.checked;changed();return;}
 });
-function hlInput(t){
-  var v=t.value;
-  if(t.dataset.num)v=t.value===''?0:+t.value;
-  else if(t.dataset.list)v=t.value.split('\n').map(function(x){return x.trim();}).filter(Boolean);
-  setPath(t.dataset.hl,v);hlChanged();
-}
-document.addEventListener('input',function(e){if(e.target.id==='dSearch'){F.q=e.target.value;paintList();return;}if(e.target.dataset&&e.target.dataset.hl)hlInput(e.target);});
-/* opening a section of the editor shows its slide */
-document.addEventListener('toggle',function(e){var d=e.target;if(d.tagName==='DETAILS'&&d.open&&d.dataset.slide!=null)go(+d.dataset.slide);},true);
-window.addEventListener('beforeunload',function(e){if(HL_DIRTY){e.preventDefault();e.returnValue='';}});
+document.addEventListener('input',function(e){
+  if(e.target.id==='dSearch'){F.q=e.target.value;paintList();return;}
+  if(EDITING&&e.target.closest&&e.target.closest('#dDeck')){EDITED=true;$('#dReset').hidden=false;}
+});
 document.addEventListener('keydown',function(e){
-  var tag=(e.target.tagName||'').toLowerCase();if(tag==='input'||tag==='select'||tag==='textarea')return;
+  var tag=(e.target.tagName||'').toLowerCase();if(tag==='input'||tag==='select'||tag==='textarea'||e.target.isContentEditable)return;
   if(e.key==='ArrowRight'||e.key==='PageDown'){go(SLIDE+1);e.preventDefault();}
   else if(e.key==='ArrowLeft'||e.key==='PageUp'){go(SLIDE-1);e.preventDefault();}
   else if(e.key==='Home'){go(0);}else if(e.key==='End'){go(allTitles().length-1);}
-  else if(e.key==='Escape'){var p=$('#dPanel');if(p&&!p.hidden){p.hidden=true;$('#dPickBtn').setAttribute('aria-expanded','false');}else if(!$('#hlPanel').hidden)openEditor(false);}
+  else if(e.key==='Escape'){var p=$('#dPanel');if(p&&!p.hidden){p.hidden=true;$('#dPickBtn').setAttribute('aria-expanded','false');}}
 });
 /* a click outside the project list closes it */
 document.addEventListener('mousedown',function(e){var pk=$('.dpick'),p=$('#dPanel');if(p&&!p.hidden&&pk&&!pk.contains(e.target)){p.hidden=true;$('#dPickBtn').setAttribute('aria-expanded','false');}});
@@ -458,10 +381,9 @@ load().then(function(j){
   ME=j.me||{};
   if(ME.isAdmin===false){say('Only admins see the dashboard: it shows the costs of every project.');return;}
   ALL=((j.projects)||[]).map(shape);
+  CATS=j.valueCats||{};
   readChoice();
-  return loadHighlights().then(function(){
-    say('');$('#dApp').hidden=false;
-    paintFilter();paintDeck();
-  });
+  say('');$('#dApp').hidden=false;
+  paintFilter();paintDeck();
 }).catch(function(e){say((e&&e.message)||'The register could not be read.');});
 })();

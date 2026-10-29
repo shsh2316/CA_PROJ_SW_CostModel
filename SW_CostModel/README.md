@@ -97,12 +97,12 @@ payback) and the **project list** with a PDF of each estimate.
 - Figures are the recorded values of each entry, the same as the Approval totals and the report.
 
 **Visual slides for meetings.** The deck opens with five infographic slides: **Working principle**, **Benefits at a glance**, **Money**, **FTE** and
-**Productivity**. Costs, cost avoided (by live / in-progress projects and by Business KPI) and project counts come from the register and follow the choice
-above; the stated figures (TAT examples, task reductions, man-hours, output, potential) are the **highlights**: **Edit highlights** opens a panel where an
-admin changes them (rows can be added, removed and moved; opening a section shows its slide) and **Save** keeps them for everyone (`dbo.SwDashboardContent`,
-each save copied to `dbo.SwMasterAudit` as `dash`). **Download PNG** saves the slide on screen as a 1920 x 1080 picture to paste into PowerPoint;
-**All slides as PNG** saves every slide but the project list. The header photos are files in `web/assets/img` (jpg / png / webp): put new ones there and choose
-them under *Look* in the editor.
+**Productivity**. Every figure comes from the registered projects of the choice above, nothing else: in-house and benchmark costs (cost avoided by live,
+in-progress and all projects, and by Business KPI), effort, status, dates (time to go live), and the benefits recorded on each estimate's Value step
+(man-hours saved → FTE at 2,740 h, downtime avoided, energy saved, ₹ value a year by category). A figure that nobody has recorded shows as 0 with a note.
+**Edit** lets you change any word or number on the slides before taking the picture (it is not saved; **Reset to the register** or changing the choice
+draws the slides again). **Download PNG** saves the slide on screen as a 1920 x 1080 picture to paste into PowerPoint; **All slides as PNG** saves every
+slide but the project list. The header photos are files in `web/assets/img`.
 
 Project dates: **Start date** and **End date** on the Registration Basics step (empty end = still running), two optional last columns in the Excel template and the CSV,
 and `database\08_project_dates.sql` for the imported project list.

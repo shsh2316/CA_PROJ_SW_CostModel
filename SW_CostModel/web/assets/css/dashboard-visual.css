@@ -27,6 +27,13 @@
 .vct{min-width:0}
 .vct b{display:block;font-size:calc(var(--u)*1.25);text-transform:uppercase;letter-spacing:.02em;line-height:1.15}
 .vct small{display:block;font-size:calc(var(--u)*1);opacity:.93;line-height:1.2}
+.vnone{display:flex;gap:calc(var(--u)*.6);align-items:center;margin:auto 0;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:calc(var(--u)*.5);padding:calc(var(--u)*.8);font-size:calc(var(--u)*1);color:var(--vmut);line-height:1.3}
+.vnone .vi{width:calc(var(--u)*2.2);height:calc(var(--u)*2.2)}
+.vstat{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(var(--u)*.45)}
+.vstat div{display:flex;flex-direction:column;align-items:center;background:#f1f5f9;border-radius:calc(var(--u)*.45);padding:calc(var(--u)*.45);font-size:calc(var(--u)*.85);color:var(--vmut)}
+.vstat b{font-size:calc(var(--u)*2);color:var(--vink);line-height:1.05;font-family:"IBM Plex Sans Condensed","Arial Narrow",sans-serif}
+.vstat .vi{width:calc(var(--u)*1.5);height:calc(var(--u)*1.5);color:#0b1f4d}
+.vchips span b{font-size:calc(var(--u)*1.1)}
 .vtag{margin-left:auto;background:#fff;color:var(--c1d);font-size:calc(var(--u)*.8);font-weight:700;padding:calc(var(--u)*.2) calc(var(--u)*.7);border-radius:calc(var(--u)*.35);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 .vcb{padding:calc(var(--u)*.8) calc(var(--u)*1);flex:1;min-height:0;display:flex;flex-direction:column;gap:calc(var(--u)*.6)}
 .c-or{--c1:#ea580c;--c2:#f59e0b;--c1d:#c2410c}
@@ -229,23 +236,18 @@
 .slide.cap .sgrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:minmax(0,1fr)!important}.slide.cap .sgrid.g3{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .slide.cap .spanel{min-height:0!important}
 
-/* the highlights editor (admins) */
-.hlpanel{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:50;display:flex;flex-direction:column}
-.hlpanel[hidden]{display:none}
-.hlhead{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.hlhead h2{margin:0;font-size:18px;flex:1}
-.hlstat{padding:6px 14px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line)}
-.hlbody{flex:1;overflow:auto;padding:10px 14px 40px}
-.hlbody details{border:1px solid var(--line);border-radius:6px;margin-bottom:8px;background:var(--surface)}
-.hlbody summary{cursor:pointer;padding:9px 12px;font-weight:600}
-.hlsec{padding:4px 12px 12px;display:flex;flex-direction:column;gap:8px}
-.hlsec .f{display:flex;flex-direction:column;gap:3px}
-.hlsec .fl{font-size:12.5px;color:var(--muted)}
-.hlsec input,.hlsec textarea,.hlsec select{width:100%;font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink)}
-.hlsec textarea{min-height:60px;resize:vertical}
-.hlrows{display:flex;flex-direction:column;gap:6px}
-.hlrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:4px;padding:6px;border:1px dashed var(--line);border-radius:4px;position:relative}
-.hlrow .hlrb{grid-column:1/-1;display:flex;gap:4px;justify-content:flex-end}
-.hlrow label{display:flex;flex-direction:column;font-size:11.5px;color:var(--muted);gap:2px}
+/* Edit mode: the slides take typing; the outline shows it and is not in the picture */
+.deck.editing .slide.on{outline:2px dashed var(--steel);outline-offset:3px;cursor:text}
+.deck.editing .slide.on:focus{outline-style:solid}
+.dedit{margin:0 0 8px}
 .dstrip button.dsep{margin-left:10px}
-@media print{.hlpanel{display:none!important}}
+@media print{.deck.editing .slide{outline:0!important}#dEditNote{display:none!important}}
+
+/* figures from the register: keep numbers on one line, long names short */
+.vtab td.g,.vtab td:last-child{white-space:nowrap}
+.vprod .vbl{--lw:calc(var(--u)*15)}
+.vpot .vbig{font-size:calc(var(--u)*2.6)}
+.vpot .vbig small{font-size:calc(var(--u)*.95)}
+.vpot2 .vbl{--lw:calc(var(--u)*12)}
+.vstrip .v2 b{white-space:nowrap;font-size:calc(var(--u)*2.4)}
+.vstrip .v1{flex-basis:22%}.vstrip .v2{flex-basis:38%}

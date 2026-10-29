@@ -48,11 +48,12 @@ About 4,400 lines of C# and JavaScript, 7 SQL scripts, documentation in `docs/`.
    draws its charts as inline SVG (no new library), presents full screen and prints one slide per landscape page.
    To make the date filter possible the register gained **StartDate / EndDate** (Registration Basics, Excel template, CSV import, report detail and CSV),
    with `database/08_project_dates.sql` filling them for the imported project list.
-5. **Visual slides** on the Dashboard (Working principle, Benefits at a glance, Money, FTE, Productivity): infographic slides for meetings, with register
-   figures (cost avoided by live / in-progress projects and by Business KPI) and admin-edited **highlights** for the stated figures (`dbo.SwDashboardContent`,
-   `highlights` / `saveHighlights` API). Every slide downloads as a 1920 x 1080 PNG (local html2canvas) for PowerPoint. Photos: `web/assets/img`.
+5. **Visual slides** on the Dashboard (Working principle, Benefits at a glance, Money, FTE, Productivity): infographic slides for meetings, every figure
+   worked out from the chosen registered projects (costs, cost avoided by status and Business KPI, effort, dates, and the benefits recorded with each estimate:
+   man-hours saved, downtime, energy, ₹ value by category; `projects&lite=1` now carries each entry's benefits). **Edit** changes words and numbers in place
+   for one picture (not saved); every slide downloads as a 1920 x 1080 PNG (local html2canvas) for PowerPoint. Photos: `web/assets/img`.
 
-Deploy: run `02_create_tables.sql` again (adds StartDate / EndDate and the highlights table) and then `08_project_dates.sql` **before** copying the new files; rebuild and publish (C# files changed);
+Deploy: run `02_create_tables.sql` again (adds StartDate / EndDate) and then `08_project_dates.sql` **before** copying the new files; rebuild and publish (C# files changed);
 copy `Web.config` changes into the server's own `Web.config` (keep its connection string and password hash); hard-refresh the browser.
 
 ## Recommendations

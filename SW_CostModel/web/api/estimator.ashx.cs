@@ -8,7 +8,7 @@ using System.Web.Management;
 /// <summary>
 /// JSON API for the estimator page. One URL, the action is a query parameter:
 ///   GET  api/estimator.ashx?action=init           signed-in user, masters and register
-///   GET  api/estimator.ashx?action=projects[&sig=...][&lite=1]   ({ unchanged: true } when the register is the same as the signature; lite: without the estimates)
+///   GET  api/estimator.ashx?action=projects[&sig=...][&lite=1]   ({ unchanged: true } when the register is the same as the signature; lite: without the estimates, with their benefits)
 ///   POST api/estimator.ashx?action=saveMaster     { key, doc }                                   admins only
 ///   POST api/estimator.ashx?action=submitProject  { id?, entry, reply? }
 ///   POST api/estimator.ashx?action=verifyProject  { id, updated, costing, adjustedValue?, comment? } admins only
@@ -16,8 +16,6 @@ using System.Web.Management;
 ///   POST api/estimator.ashx?action=sendBack       { id, updated, comment }                       admins only
 /// People who are not admins never receive prices, rates or cost figures.
 ///   POST api/estimator.ashx?action=deleteProject  { id }
-///   GET  api/estimator.ashx?action=highlights      the dashboard's stated figures ({ doc, by, at } or null)    admins only
-///   POST api/estimator.ashx?action=saveHighlights  { doc }                                         admins only
 /// Errors come back as { error: { code, message } } with an HTTP error status.
 /// The code is compiled by IIS on first use (App_Code); nothing to build or install.
 /// </summary>
@@ -90,7 +88,11 @@ public class EstimatorApi : IHttpHandler
                 bool lite = req.QueryString["lite"] == "1";
                 if (!lite && req.QueryString["sig"] == sig) return new Dictionary<string, object> { { "unchanged", true }, { "sig", sig } };
                 Dictionary<string, object> reg = ProjectRepository.ListWithSignature(user, sig, !lite);
-                if (lite) reg["me"] = Me(user);   // the dashboard needs to know whether this person sees costs
+                if (lite)
+                {
+                    reg["me"] = Me(user);   // the dashboard needs to know whether this person sees costs
+                    reg["valueCats"] = ProjectRepository.ValueCategories();
+                }
                 return reg;
             }
             case "saveMaster:POST":
@@ -110,11 +112,6 @@ public class EstimatorApi : IHttpHandler
                 return Ok(null);
             case "deleteProject:POST":
                 ProjectRepository.Delete(user, body);
-                return Ok(null);
-            case "highlights:GET":
-                return new Dictionary<string, object> { { "highlights", DashboardRepository.Get(user) } };
-            case "saveHighlights:POST":
-                DashboardRepository.Save(user, Json.Obj(body, "doc"));
                 return Ok(null);
             default:
                 throw new ApiException(404, "not_found", "Unknown action '" + action + "'.");

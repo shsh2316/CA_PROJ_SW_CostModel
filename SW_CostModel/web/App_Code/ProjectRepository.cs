@@ -27,7 +27,8 @@ public static class ProjectRepository
 
     /* ================= list ================= */
 
-    /// <summary>Admins get every entry; anyone else gets only their own, without cost figures.</summary>
+    /// <summary>Admins get every entry; anyone else gets only their own, without cost figures.
+    /// Without the state (the dashboard), each entry carries only the benefits of its estimate instead: see Benefits.</summary>
     public static Dictionary<string, object> List(CurrentUser user, bool withState = true)
     {
         var projects = new List<object>();
@@ -40,7 +41,7 @@ public static class ProjectRepository
             "SELECT RegisterId, EntryKey, FinYear, Kind, DeliveryModel, Status, ProjectName, ProjectType, Department, " +
             "ValueINR, ValueOriginalINR, BenchmarkValueINR, ChargedINR, OneTimeINR, BenchmarkOneTimeINR, YearlyRunINR, BenchmarkYearlyRunINR, " +
             "PersonDays, TeamSize, ValueCreatedYearlyINR, ValueCreatedOneTimeINR, Note, Workflow, SubmittedBy, SubmittedAt, UpdatedAt, " +
-            "VerifiedBy, VerifiedAt, CostedBy, StartDate, EndDate" + (withState ? ", EstimateJson " : " ") +
+            "VerifiedBy, VerifiedAt, CostedBy, StartDate, EndDate, EstimateJson " +
             "FROM dbo.SwProjectRegister" + own;
         foreach (DataRow r in Db.Select(sql).Rows)
         {
@@ -78,9 +79,11 @@ public static class ProjectRepository
             Put(d, "costedBy", Db.Str(r, "CostedBy"));
             d["costed"] = r["CostedBy"] != DBNull.Value;
             if (withState) Put(d, "state", Db.Str(r, "EstimateJson"));
+            else d["benefits"] = Benefits(Db.Str(r, "EstimateJson"));
             if (!user.IsAdmin)
             {
                 foreach (string k in CostFields) d.Remove(k);
+                d.Remove("benefits");   // the benefits carry the admin's ₹ rates
                 if ((string)d["wf"] == "verified") d.Remove("state");   // a verified estimate carries the admin's rates
             }
             d["log"] = new List<object>();
@@ -137,6 +140,43 @@ public static class ProjectRepository
         Dictionary<string, object> reg = List(user, withState);
         reg["sig"] = sig;
         return reg;
+    }
+
+    /// <summary>
+    /// The benefits recorded with an estimate (its value creation step): category, quantity a year or once, unit, ₹ per unit, description.
+    /// The dashboard adds them up (man-hours saved, downtime avoided, value by category) without loading the whole estimate.
+    /// </summary>
+    static List<object> Benefits(string stateJson)
+    {
+        var list = new List<object>();
+        if (String.IsNullOrEmpty(stateJson)) return list;
+        IDictionary<string, object> state;
+        try { state = Json.Serializer().DeserializeObject(stateJson) as IDictionary<string, object>; }
+        catch (Exception) { return list; }
+        System.Collections.IList items = Json.List(Json.Obj(state, "value"), "items");
+        if (items == null) return list;
+        foreach (object o in items)
+        {
+            var it = o as IDictionary<string, object>;
+            if (it == null || list.Count >= 20) continue;
+            decimal qty = Json.Num(it, "qty", 0, 1e12m), rate = Json.Num(it, "rate", 0, 1e12m);
+            if (qty <= 0) continue;
+            list.Add(new Dictionary<string, object>
+            {
+                { "cat", Json.Text(it, "cat", 20) ?? "other" }, { "qty", qty }, { "rate", rate },
+                { "unit", Json.Text(it, "unit", 30) ?? "" }, { "once", Json.Text(it, "freq", 10) == "once" }, { "desc", Json.Text(it, "desc", 200) ?? "" }
+            });
+        }
+        return list;
+    }
+
+    /// <summary>Names and units of the value creation categories, for the dashboard.</summary>
+    public static Dictionary<string, object> ValueCategories()
+    {
+        var d = new Dictionary<string, object>();
+        foreach (DataRow r in Db.Select("SELECT CategoryId, CategoryName, Unit FROM dbo.SwValueCategory").Rows)
+            d[Db.Str(r, "CategoryId")] = new Dictionary<string, object> { { "name", Db.Str(r, "CategoryName") }, { "unit", Db.Str(r, "Unit") } };
+        return d;
     }
 
     /// <summary>A project date from the request: "yyyy-mm-dd", or empty for none. Anything else is refused.</summary>
