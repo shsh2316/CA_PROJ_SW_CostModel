@@ -60,9 +60,42 @@ function catName(id){var c=X.cats&&X.cats[id];return (c&&c.name)||CAT_NAMES[id]|
 function years(y){return y<1?n0(y*12)+' months':X.num(y,1)+' years';}
 /* the header photo, faded into the white of the slide; src is a library file's address or an uploaded picture (data: URL) */
 function photoStyle(src){return 'background-image:linear-gradient(100deg,#fff 0%,rgba(255,255,255,.92) 14%,rgba(255,255,255,0) 46%),linear-gradient(0deg,#fff 0%,rgba(255,255,255,0) 30%),url(\''+String(src).replace(/["'<>&\\]/g,'')+'\')';}
-function head(i,title,em,sub){
-  return '<div class="vphoto" style="'+photoStyle(X.photo?X.photo(i):'assets/img/'+PHOTO[i])+'"></div>'+
-    '<div class="vhead"><p class="veb">'+e(EYEBROW)+'</p><h2>'+e(title)+(em?' <em>'+e(em)+'</em>':'')+'</h2>'+(sub?'<p class="vsub">'+sub+'</p>':'')+'</div>';
+/* ---------- headings: a few ready-made headings and subheadings per slide, or the user's own; {words} in braces fill in from the register ---------- */
+var HEADS=[
+  {titles:[['Working principle','of the department'],['How we work:','from plant data to decisions'],['Central Automation:','{projects} projects for {departments} departments'],['In-house digitization','that pays back']],
+   subs:['From plant and Level-2 data to in-house software the departments use for decisions · {period}','{projects} projects built in-house for {inhouse}, {pct} below a software company','{live} live and {progress} in progress, for {departments} departments · {period}']},
+  {titles:[['Benefits at a glance:','money, FTE, time and value'],['{avoidedLive} avoided,','{fte} FTE saved a year'],['What our projects deliver:','{value} a year'],['Benefits at a glance','']],
+   subs:['{period}: **{projects} projects ({live} live and {progress} in progress)**','{projects} projects · {pct} lower cost than a software company · {period}','Figures from the project register · {period}']},
+  {titles:[['Money:','{liveWord} avoided {avoidedLive} of external cost'],['Cost avoidance:','{avoided} saved by building in-house'],['In-house vs. external:','{pct} lower cost'],['Money:','{inhouse} in-house against {benchmark} outside']],
+   subs:['Cost over the years of ownership: in-house against a software company, ₹ Cr','{projects} projects · {period}','Value created: {value} a year, payback {payback}']},
+  {titles:[['FTE:','Working time saved'],['{mh} man-hours','saved a year'],['FTE:','{fte} FTE freed for other work'],['People:','time given back to the plant']],
+   subs:["Man-hours saved a year, as recorded with each project's estimate",'{mh} hours a year = {fte} FTE at 2,740 hours per FTE','Built with {persondays} person-days of in-house work · {period}']},
+  {titles:[['Productivity:','more value, more availability'],['Productivity:','{value} a year of value created'],['Availability:','{downtime} hours of downtime avoided a year'],['Payback in','{payback}']],
+   subs:["Value created and downtime avoided, as recorded with each project's estimate",'{projects} projects · {period}','Simple payback of {payback} on {inhouse} of in-house cost']}
+];
+var TOKENS=['projects','live','progress','departments','avoided','avoidedLive','pct','inhouse','benchmark','mh','fte','downtime','energy','value','payback','persondays','period'];
+function tokens(){
+  return {projects:n0(D.L.length),live:n0(D.live.length),progress:n0(D.prog.length),departments:n0(D.nDepts),avoided:cr(D.B-D.A),avoidedLive:cr(D.mB-D.mA),
+    liveWord:D.live.length?'Live projects':'Projects',pct:pctLower(D.A,D.B)+'%',inhouse:cr(D.A),benchmark:cr(D.B),mh:n0(D.mh),fte:fte2(D.mh),downtime:n0(D.dt),energy:n0(D.kwh),
+    value:cr(D.valY),payback:D.payback==null?'–':years(D.payback),persondays:n0(D.pd),period:X.period};
+}
+function fill(t,T){return String(t||'').replace(/\{(\w+)\}/g,function(m,k){return T.hasOwnProperty(k)?T[k]:m;});}
+/* the heading of slide i as chosen: h = {t: option or -1 for own, title, em, s: option or -1, sub} */
+function chosenHead(i){
+  var h=(X.heading&&X.heading(i))||{},H=HEADS[i],T=tokens();
+  var ti=h.t==null?0:+h.t,si=h.s==null?0:+h.s;
+  var t=ti<0?[h.title||'',h.em||'']:(H.titles[ti]||H.titles[0]),sub=si<0?(h.sub||''):(H.subs[si]||H.subs[0]);
+  return {title:fill(t[0],T),em:fill(t[1],T),sub:fill(sub,T)};
+}
+/* subheading text: escaped, then **bold** */
+function subHtml(t){return e(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');}
+function headInner(i){
+  var c=chosenHead(i);
+  var len=(c.title+' '+c.em).length;   // a long heading gets smaller type, so it stays on one or two short lines and the slide still fits
+  return '<p class="veb">'+e(EYEBROW)+'</p><h2'+(len>70?' class="hx"':(len>34?' class="hl"':''))+'>'+e(c.title)+(c.em?' <em>'+e(c.em)+'</em>':'')+'</h2>'+(c.sub?'<p class="vsub">'+subHtml(c.sub)+(i===1&&X.choiceNote?' · '+e(X.choiceNote):'')+'</p>':'');
+}
+function head(i){
+  return '<div class="vphoto" style="'+photoStyle(X.photo?X.photo(i):'assets/img/'+PHOTO[i])+'"></div><div class="vhead">'+headInner(i)+'</div>';
 }
 function card(cls,n,title,sub,body,extra){
   return '<div class="vcard '+cls+(extra?' '+extra:'')+'"><div class="vch"><span class="vn">'+n+'</span><div class="vct"><b>'+e(title)+'</b>'+(sub?'<small>'+e(sub)+'</small>':'')+'</div>'+
@@ -166,7 +199,7 @@ function sPrinciple(){
   var c3='<p class="vtxt">'+e(plural(D.live.length,'project')+' live, '+n0(D.prog.length)+' in progress'+(D.plan.length?', '+n0(D.plan.length)+' planned':'')+': software and tools for operations, maintenance and management.')+'</p>'+
     '<div class="vstat">'+[['check',D.live.length,'Live'],['clock',D.prog.length,'In progress'],['shield',D.ver,'Verified']].map(function(s){return '<div>'+ic(s[0])+'<b>'+n0(s[1])+'</b><span>'+s[2]+'</span></div>';}).join('')+'</div>'+
     '<div class="vimpact"><h4>Key impact</h4><div>'+imp.map(function(r,i){return '<div class="vimp i'+i+'">'+ic(r[0])+'<b>'+e(r[1])+'</b><span>'+e(r[2])+'</span></div>';}).join('')+'</div></div>';
-  return head(0,'Working principle','of the department',e('From plant and Level-2 data to in-house software the departments use for decisions · '+X.period))+
+  return head(0)+
     '<div class="vbody vprin">'+card('c-or','1','Plant and Level-2 data','The departments served',c1)+'<span class="vflow">'+ic('arrow')+'</span>'+
       card('c-te','2','In-house digitization & development','Build, integrate, analyse',c2)+'<span class="vflow">'+ic('arrow')+'</span>'+card('c-nv','3','Decision-making software & tools','Business impact',c3)+'</div>'+
     '<div class="vstrip"><div class="v1"><b>'+pctLower(D.A,D.B)+'%</b><span>lower cost than a software company</span></div><div class="v2"><b>'+e(cr(D.A))+'</b><span>'+e('in-house, against '+cr(D.B)+' from a software company')+'</span></div>'+
@@ -176,7 +209,6 @@ function sPrinciple(){
 /* ---------- 2. benefits at a glance ---------- */
 function sGlance(){
   var who=D.live.length?'By the '+plural(D.live.length,'live project'):'By the '+plural(D.L.length,'chosen project');
-  var sub=e(X.period)+': <b>'+e(plural(D.L.length,'project')+' ('+n0(D.live.length)+' live and '+n0(D.prog.length)+' in progress)')+'</b>'+(X.choiceNote?' · '+e(X.choiceNote):'');
   var money='<div class="vbig or">'+e(cr(D.mB-D.mA))+'<small>avoided</small></div><p class="vtxt">'+e(who+': built in-house for '+cr(D.mA)+' against '+cr(D.mB)+' from a software company ('+pctLower(D.mA,D.mB)+'% lower), with hardware, people and licences.')+'</p>'+
     '<div class="vcall">'+artCoins()+'<div class="vbox or"><b>'+pctLower(D.mA,D.mB)+'%</b><span>lower cost vs external</span></div></div>';
   var fte='<div class="vbig te">'+e(n0(D.mh))+'<small>man-hours a year</small></div><p class="vtxt">'+e(D.mhN?'Saved, as recorded with the estimates of '+plural(D.mhN,'project')+' (1 FTE = '+n0(HOURS_PER_FTE)+' hours).':'No man-hours saved recorded yet: add them on a project\'s Value step.')+'</p>'+
@@ -188,7 +220,7 @@ function sGlance(){
       (D.A>0?' That is '+n0(D.valY/D.A*100)+'% of the in-house cost each year.':''))+'</p>'+
     '<div class="vcall">'+artBarsUp()+'<div class="vbox pu"><b>'+e(D.payback==null?'–':years(D.payback))+'</b><span>simple payback</span></div></div>';
   var hc=function(cls,icon,title,s,body){return '<div class="vcard '+cls+' vg"><div class="vch"><span class="vn">'+ic(icon)+'</span><div class="vct"><b>'+e(title)+'</b><small>'+e(s)+'</small></div></div><div class="vcb">'+body+'</div></div>';};
-  return head(1,'Benefits at a glance:','money, FTE, time and value',sub)+
+  return head(1)+
     '<div class="vbody vglance">'+hc('c-or','coins','Money','Cost avoidance',money)+hc('c-te','people','FTE','Man-hours saved',fte)+
       hc('c-bl','clock','Time','Downtime avoided',time)+hc('c-pu','chart','Value','Value created',val)+'</div>'+
     '<div class="vport"><span class="vpi">'+ic('doc')+'</span><div><b>Project portfolio</b><span>'+e(X.period)+'</span></div>'+
@@ -220,7 +252,7 @@ function sMoney(){
   var cats=Object.keys(D.cat).map(function(k){return D.cat[k];}).filter(function(c){return c.amtY>0;}).sort(function(a,b){return b.amtY-a.amtY;}).slice(0,6);
   var valH=cats.length?'<div class="vgains">'+cats.map(function(c){return '<div>'+ic(CAT_ICON[c.id]||'coins')+'<b>'+e(cr(c.amtY))+'</b><span>'+e(catName(c.id)+' a year, '+plural(c.n,'project'))+'</span></div>';}).join('')+'</div>'
     :none('No value recorded with these projects\' estimates yet: add benefits on a project\'s Value step.');
-  return head(2,'Money:',(D.live.length?'Live projects avoided ':'Projects avoided ')+cr(D.mB-D.mA)+' of external cost',e('Cost over the years of ownership: in-house against a software company, ₹ Cr'))+
+  return head(2)+
     '<div class="vbody vmoney">'+card('c-bl','1','Cost: in-house vs. software company','₹ Cr',colsH)+
       card('c-gr','2','Cost avoided by business KPI','₹ Cr ('+plural(D.L.length,'project')+')',kpi,'vkpi')+
       card('c-nv','3','Value created a year, by benefit','Recorded with the estimates',valH,'vwide')+'</div>'+
@@ -244,7 +276,7 @@ function sFte(){
     effort=bars(Object.keys(byT).map(function(k){return {label:k,value:byT[k],text:n0(byT[k])+' pd'};}).sort(function(a,b){return b.value-a.value;}).slice(0,6),{cls:'o'});}
   var take='<div class="vtake">'+[['people',n0(D.mh)+' man-hours','saved a year ('+fte2(D.mh)+' FTE)'],['doc',plural(D.mhN,'project'),'with man-hours saved recorded'],
     ['gear',n0(D.pd)+' person-days','of in-house effort ('+X.num(D.effortFte,1)+' FTE-years)'],['chart',D.team?X.num(D.team,1)+' people':'–','per project team on average']].map(function(r){return '<div>'+ic(r[0])+'<span><b>'+e(r[1])+'</b>'+e(r[2])+'</span></div>';}).join('')+'</div>';
-  return head(3,'FTE:','Working time saved',e('Man-hours saved a year, as recorded with each project\'s estimate'))+
+  return head(3)+
     '<div class="vbody vfte">'+card('c-bl','1','Man-hours saved, by project','Largest first',table,'vt1')+
       card('c-te','2','Total time saved with projects','',total,'vt2')+card('c-or','3',Dd.length?'Man-hours saved by department':'In-house effort by project type','',effort,'vt3')+card('c-pu','4','Key takeaways','',take,'vt4')+'</div>'+
     foot(n0(D.mh)+' man-hours a year saved ('+fte2(D.mh)+' FTE) on '+plural(D.mhN,'project')+', with '+n0(D.pd)+' person-days of in-house work.',
@@ -263,7 +295,7 @@ function sProd(){
   var out='<div class="vout">'+ic('chart')+'<div><b>'+e(cr(D.valY))+'</b><span>'+e('value created a year, '+plural(D.L.filter(function(p){return p.valY>0;}).length,'project')+(D.valO?'; plus '+cr(D.valO)+' one-time':''))+'</span></div></div>';
   var take='<div class="vtake4">'+[['chart',cr(D.valY),'value a year'],['coins',D.A>0?n0(D.valY/D.A*100)+'%':'–','of the in-house cost, each year'],
     ['gauge',D.payback==null?'–':years(D.payback),'simple payback'],['clock',n0(D.dt)+' h','downtime avoided a year']].map(function(r){return '<div>'+ic(r[0])+'<b>'+e(r[1])+'</b><span>'+e(r[2])+'</span></div>';}).join('')+'</div>';
-  return head(4,'Productivity:','more value, more availability',e('Value created and downtime avoided, as recorded with each project\'s estimate'))+
+  return head(4)+
     '<div class="vbody vprod">'+card('c-bl','1','Value created a year, by project','Largest first, ₹',valB,'vp1')+
       card('c-te','2','Availability and delivery','Downtime avoided, energy saved, time to go live',avail,'vp2')+card('c-or','3','Value created','',out,'vp3')+card('c-pu','4','Key takeaways','',take,'vp4')+'</div>'+
     foot(cr(D.valY)+' a year of value and '+n0(D.dt)+' hours a year of downtime avoided, from '+plural(D.L.length,'project')+'.',
@@ -272,8 +304,11 @@ function sProd(){
 
 var TITLES=['Working principle','Benefits at a glance','Money','FTE','Productivity'];
 return {
-  TITLES:TITLES,kpiOf:kpiOf,LIBRARY:LIBRARY,PHOTO:PHOTO,photoStyle:photoStyle,
-  /* i: 0..4; x: { esc, num, L (chosen projects), period, choiceNote, cats (value categories: id -> {name, unit}), photo(i) -> picture address } */
+  TITLES:TITLES,kpiOf:kpiOf,LIBRARY:LIBRARY,PHOTO:PHOTO,photoStyle:photoStyle,HEADS:HEADS,TOKENS:TOKENS,
+  /* the heading choices of slide i with their figures filled in, for the Headings panel; and the heading block alone, to change it in place */
+  options:function(i,x){X=x;D=figures(x.L);var T=tokens();return {titles:HEADS[i].titles.map(function(t){return [fill(t[0],T),fill(t[1],T)];}),subs:HEADS[i].subs.map(function(s){return fill(s,T).replace(/\*\*/g,'');})};},
+  headInner:function(i,x){X=x;D=figures(x.L);return headInner(i);},
+  /* i: 0..4; x: { esc, num, L (chosen projects), period, choiceNote, cats (value categories: id -> {name, unit}), photo(i) -> picture address, heading(i) -> the chosen heading } */
   make:function(i,x){X=x;D=figures(x.L);return [sPrinciple,sGlance,sMoney,sFte,sProd][i]();}
 };
 })();

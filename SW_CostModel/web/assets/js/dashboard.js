@@ -16,7 +16,8 @@ var STAT={planned:'Planned',progress:'In progress',completed:'Completed'};
 var WF={pending:'Awaiting verification',info:'Needs information',verified:'Verified'};
 var ALL=[],F={from:'',to:'',undated:true,ver:false,ids:[],q:''},SLIDE=0,ME={};
 var V=window.CADashVisual,NV=V.TITLES.length;   // the visual slides come first
-var CATS={},EDITING=false,EDITED=false;   // value categories (names); the Edit mode, and whether anything was changed in it
+var CATS={},EDITING=false,EDITED=false,LPAGE=0,LASTX=null;   // ...; the page of the project list on screen; what the visual slides were drawn with
+var LIST_ROWS=14;   // projects per page of the list slide: a page fits one 16:9 slide, picture or printed page   // value categories (names); the Edit mode, and whether anything was changed in it
 
 function $(s){return document.querySelector(s);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
@@ -153,14 +154,16 @@ function periodText(){
   if(!F.from&&!F.to)return 'All dates';
   return (F.from?fmtDate(F.from):'the start')+' to '+(F.to?fmtDate(F.to):'today')+(F.undated?', with projects that have no dates':'');
 }
-function head(i,list){
-  return '<div class="shead"><span class="snum">'+(i+1+NV)+' / '+(TITLES.length+NV)+'</span><h2>'+esc(TITLES[i])+'</h2>'+
+function head(i,list,extra){
+  return '<div class="shead"><span class="snum">'+(i+1+NV)+' / '+(TITLES.length+NV)+'</span><h2>'+esc(TITLES[i])+(extra?'<small class="spage">'+esc(extra)+'</small>':'')+'</h2>'+
     '<span class="ssel">'+esc(list.length+' project'+(list.length===1?'':'s')+(F.ids.length?' chosen':'')+' · '+periodText()+(F.ver?' · verified only':''))+'</span></div>';
 }
 function tile(label,big,sub,cls){return '<div class="tile'+(cls?' '+cls:'')+'"><span class="tl">'+esc(label)+'</span><b>'+esc(big)+'</b>'+(sub?'<span class="ts">'+esc(sub)+'</span>':'')+'</div>';}
 function sum(list,f){return list.reduce(function(a,p){return a+(typeof f==='function'?f(p):p[f]);},0);}
+function cut(t,n){t=String(t||'');return t.length>n?t.slice(0,n-1)+'…':t;}
+/* the largest few: a short name on one line, department, year and figure on the next, so four always fit the panel */
 function topList(rows,val,title){
-  return '<div class="spanel"><h3>'+esc(title)+'</h3><ol class="dtop">'+(rows.length?rows.map(function(p){return '<li><span>'+esc(p.name)+'<small>'+esc(p.dept+' · FY '+p.fy)+'</small></span><b>'+esc(val(p))+'</b></li>';}).join(''):'<li class="note">None</li>')+'</ol></div>';
+  return '<div class="spanel"><h3>'+esc(title)+'</h3><ol class="dtop">'+(rows.length?rows.slice(0,4).map(function(p){return '<li title="'+esc(p.name)+'"><span>'+esc(cut(p.name,44))+'</span><small>'+esc(cut(p.dept,22)+' · FY '+p.fy)+' · <b>'+esc(val(p))+'</b></small></li>';}).join(''):'<li class="note">None</li>')+'</ol></div>';
 }
 
 function slideSummary(L){
@@ -217,11 +220,17 @@ function slideValue(L){
     topList(top(L,function(p){return p.valY;},5),function(p){return money(p.valY)+' a year';},'Largest value a year')+
     '</div><p class="note">'+esc(L.filter(function(p){return !p.valY&&!p.valO;}).length+' of '+L.length+' chosen projects have no value recorded with their estimate.')+'</p>';
 }
-function slideList(L){
-  var rows=L.slice().sort(function(a,b){return String(b.fy).localeCompare(String(a.fy))||a.name.localeCompare(b.name);});
-  return head(4,L)+'<div class="slist"><table class="rep"><thead><tr><th>Project</th><th>Department</th><th>Dates</th><th>Status</th><th>Review</th><th class="num">In-house</th><th class="num">Benchmark</th><th class="num">Value a year</th><th>Estimate</th></tr></thead><tbody>'+
+/* the project list in pages of LIST_ROWS: one section per page, so each page is a whole slide (screen, picture, print) */
+function listPages(L){
+  var rows=L.slice().sort(function(a,b){return String(b.fy).localeCompare(String(a.fy))||a.name.localeCompare(b.name);}),pages=[];
+  for(var k=0;k<rows.length;k+=LIST_ROWS)pages.push(rows.slice(k,k+LIST_ROWS));
+  return pages.length?pages:[[]];
+}
+function slideList(L,page,nPages,first){
+  var rows=page;
+  return head(4,L,nPages>1?' · page '+(first/LIST_ROWS+1)+' of '+nPages+' (projects '+(first+1)+'–'+(first+rows.length)+')':'')+'<div class="slist"><table class="rep"><thead><tr><th>Project</th><th>FY</th><th>Department</th><th>Dates</th><th>Status</th><th>Review</th><th class="num">In-house</th><th class="num">Benchmark</th><th class="num">Value a year</th><th>Estimate</th></tr></thead><tbody>'+
     rows.map(function(p){
-      return '<tr><td class="c-title" data-label="Project">'+esc(p.name)+'<small class="sub2">FY '+esc(p.fy)+'</small></td><td data-label="Department">'+esc(p.dept)+'</td>'+
+      return '<tr><td class="c-title" data-label="Project" title="'+esc(p.name)+'">'+esc(cut(p.name,58))+'</td><td data-label="FY">'+esc(p.fy)+'</td><td data-label="Department">'+esc(cut(p.dept,24))+'</td>'+
         '<td data-label="Dates">'+esc(p.start?fmtDate(p.start)+' to '+(p.end?fmtDate(p.end):'running'):(p.end?'to '+fmtDate(p.end):'not given'))+'</td>'+
         '<td data-label="Status">'+esc(STAT[p.status]||'')+'</td><td data-label="Review"><span class="tag'+(p.wf==='verified'?' ok':(p.wf==='info'?' warn':' wait'))+'">'+esc(WF[p.wf]||p.wf)+'</span></td>'+
         '<td class="num" data-label="In-house">'+esc(money(p.a))+'</td><td class="num" data-label="Benchmark">'+esc(money(p.b))+'</td><td class="num" data-label="Value a year">'+esc(money(p.valY))+'</td>'+
@@ -232,27 +241,34 @@ function slideList(L){
 function allTitles(){return V.TITLES.concat(TITLES);}
 function paintDeck(){
   var L=chosen(),makers=[slideSummary,slideMoney,slideEffort,slideValue,slideList],T=allTitles();
-  var x={esc:esc,num:num,L:L,cats:CATS,photo:photoOf,period:F.from||F.to?periodText():'All dates',
+  var x=LASTX={esc:esc,num:num,L:L,cats:CATS,photo:photoOf,heading:headingOf,period:F.from||F.to?periodText():'All dates',
     choiceNote:(F.ids.length?'projects chosen':'')+(F.ver?(F.ids.length?', ':'')+'verified only':'')};
   var vis=V.TITLES.map(function(t,i){
     var html;try{html=V.make(i,x);}catch(err){html='<p class="empty">This slide could not be drawn: '+esc(err.message)+'</p>';}
-    return '<section class="slide vs'+(i===SLIDE?' on':'')+'" aria-label="Slide '+(i+1)+': '+esc(t)+'">'+html+'</section>';});
-  var data=makers.map(function(m,i){return '<section class="slide'+(i+NV===SLIDE?' on':'')+'" aria-label="Slide '+(i+1+NV)+': '+esc(TITLES[i])+'">'+
-    (L.length||i===0?m(L):head(i,L)+'<p class="empty">No projects in this choice.</p>')+'</section>';});
+    return '<section class="slide vs" data-idx="'+i+'" aria-label="Slide '+(i+1)+': '+esc(t)+'">'+html+'</section>';});
+  var data=makers.map(function(m,i){
+    var sec=function(html,pg){return '<section class="slide" data-idx="'+(i+NV)+'"'+(pg!=null?' data-page="'+pg+'"':'')+' aria-label="Slide '+(i+1+NV)+': '+esc(TITLES[i])+(pg?' page '+(pg+1):'')+'">'+html+'</section>';};
+    if(!L.length&&i>0)return sec(head(i,L)+'<p class="empty">No projects in this choice.</p>');
+    if(m===slideList){var P=listPages(L);return P.map(function(rows,k){return sec(slideList(L,rows,P.length,k*LIST_ROWS),k);}).join('');}
+    return sec(m(L));});
   $('#dDeck').innerHTML=vis.concat(data).join('');
+  LPAGE=Math.min(LPAGE,listCount()-1);
   EDITED=false;setEditing(EDITING);
   if(!L.length)$$('#dDeck .slide')[NV].insertAdjacentHTML('beforeend','<p class="empty">No projects match: widen the period, include projects without dates, or clear the project choice.</p>');
   paintPos();
 }
+function listCount(){return Math.max(1,$$('#dDeck .slide[data-page]').length);}
+function sectionOf(i,pg){return $('#dDeck .slide[data-idx="'+i+'"]'+(i===allTitles().length-1&&$('#dDeck .slide[data-page]')?'[data-page="'+(pg||0)+'"]':''));}
 function paintPos(){
-  var T=allTitles();
-  $$('.slide').forEach(function(s,i){s.classList.toggle('on',i===SLIDE);});
-  $('#dPos').textContent=(SLIDE+1)+' / '+T.length+' · '+T[SLIDE];
+  var T=allTitles(),onList=SLIDE===T.length-1,n=listCount();
+  $$('.slide').forEach(function(s){s.classList.toggle('on',+s.dataset.idx===SLIDE&&(s.dataset.page==null||+s.dataset.page===LPAGE));});
+  $('#dPos').textContent=(SLIDE+1)+' / '+T.length+' · '+T[SLIDE]+(onList&&n>1?' · page '+(LPAGE+1)+' of '+n:'');
+  $('#dPager').hidden=!(onList&&n>1);$('#dPgPrev').disabled=LPAGE===0;$('#dPgNext').disabled=LPAGE>=n-1;
   $('#dStrip').innerHTML=T.map(function(t,i){return '<button type="button" data-slide="'+i+'"'+(i===SLIDE?' aria-current="true"':'')+(i===NV?' class="dsep"':'')+'><span>'+(i+1)+'</span>'+esc(t)+'</button>';}).join('');
   $('#dPrev').disabled=SLIDE===0;$('#dNext').disabled=SLIDE===T.length-1;
 }
 function $$(s){return Array.prototype.slice.call(document.querySelectorAll(s));}
-function go(i){SLIDE=Math.max(0,Math.min(allTitles().length-1,i));paintPos();paintPhotos();}
+function go(i){SLIDE=Math.max(0,Math.min(allTitles().length-1,i));paintPos();paintPhotos();paintHeadings();}
 function changed(){saveChoice();paintFilter();paintDeck();}
 
 /* ---------- Edit: change the words and numbers of the slides in place, for a picture; nothing is saved ---------- */
@@ -283,7 +299,7 @@ function photoOf(i){return srcOf(PH.choice[i])||'assets/img/'+V.PHOTO[i];}
 /* change a slide's photo in place, so words changed with Edit stay */
 function setPhoto(i,ref){
   PH.choice[i]=ref;savePhotos();
-  var el=$$('#dDeck .slide')[i];el=el&&el.querySelector('.vphoto');if(el)el.setAttribute('style',V.photoStyle(photoOf(i)));
+  var el=sectionOf(i);el=el&&el.querySelector('.vphoto');if(el)el.setAttribute('style',V.photoStyle(photoOf(i)));
   paintPhotos();
 }
 function phTarget(){return SLIDE<NV?SLIDE:0;}
@@ -330,6 +346,39 @@ function removeUpload(ref){
   paintPhotos();
 }
 
+/* ---------- Headings: choose each visual slide's heading and subheading, or write your own; kept in this browser ---------- */
+/* Saved per slide as {t: option or -1 (own), title, em, s: option or -1 (own), sub}. {words} in braces fill in from the register. */
+var HD_KEY='ca-dashboard.headings',HD={};
+function readHeadings(){try{var h=JSON.parse(localStorage.getItem(HD_KEY)||'{}');HD=h&&typeof h==='object'?h:{};}catch(e){HD={};}}
+function headingOf(i){return HD[i]||null;}
+function setHeading(i,h){
+  if(h)HD[i]=h;else delete HD[i];
+  try{localStorage.setItem(HD_KEY,JSON.stringify(HD));}catch(e){}
+  var sec=sectionOf(i),el=sec&&sec.querySelector('.vhead');if(el&&LASTX)el.innerHTML=V.headInner(i,LASTX);   // only the heading changes: Edit changes elsewhere stay
+}
+function hdTarget(){return SLIDE<NV?SLIDE:0;}
+function paintHeadings(){
+  var box=$('#hdPanel');if(!box||box.hidden||!LASTX)return;
+  var i=hdTarget(),h=HD[i]||{},o=V.options(i,LASTX),ti=h.t==null?0:+h.t,si=h.none?-2:(h.s==null?0:+h.s);
+  $('#hdFor').textContent='Heading for slide '+(i+1)+': '+V.TITLES[i]+(SLIDE>=NV?' (the data slides keep their own titles)':'');
+  $('#hdTitles').innerHTML=o.titles.map(function(t,k){return '<label class="hdopt"><input type="radio" name="hdT" value="'+k+'"'+(ti===k?' checked':'')+'><span><b>'+esc(t[0])+'</b> <em>'+esc(t[1])+'</em></span></label>';}).join('')+
+    '<label class="hdopt own"><input type="radio" name="hdT" value="-1"'+(ti<0?' checked':'')+'><span>Your own: <input type="text" id="hdTitle" placeholder="Heading" value="'+esc(h.title||'')+'" maxlength="80">'+
+    '<input type="text" id="hdEm" placeholder="Coloured part (optional)" value="'+esc(h.em||'')+'" maxlength="100"></span></label>';
+  $('#hdSubs').innerHTML=o.subs.map(function(t,k){return '<label class="hdopt"><input type="radio" name="hdS" value="'+k+'"'+(si===k?' checked':'')+'><span>'+esc(t)+'</span></label>';}).join('')+
+    '<label class="hdopt own"><input type="radio" name="hdS" value="-1"'+(si<0?' checked':'')+'><span>Your own: <input type="text" id="hdSub" placeholder="Subheading" value="'+esc(h.sub||'')+'" maxlength="200"></span></label>'+
+    '<label class="hdopt"><input type="radio" name="hdS" value="-2"'+(si===-2?' checked':'')+'><span>No subheading</span></label>';
+  $('#hdTokens').innerHTML='Fill in from the register: '+V.TOKENS.map(function(k){return '<button type="button" class="lnk" data-token="{'+k+'}">{'+k+'}</button>';}).join(' ');
+}
+/* read the panel into the slide's choice */
+function hdApply(){
+  var i=hdTarget(),t=$('input[name="hdT"]:checked'),s2=$('input[name="hdS"]:checked');
+  var h={t:t?+t.value:0,title:$('#hdTitle').value.trim(),em:$('#hdEm').value.trim(),s:s2?+s2.value:0,sub:$('#hdSub').value.trim()};
+  if(h.s===-2){h.s=-1;h.sub='';h.none=1;}
+  setHeading(i,h.t===0&&h.s===0&&!h.title&&!h.em&&!h.sub?null:h);
+}
+function openHeadings(show){var p=$('#hdPanel');p.hidden=!show;$('#dHeads').setAttribute('aria-expanded',String(show));if(show){openPhotos(false);paintHeadings();}}
+var HD_FOCUS=null;   // the text box a {word} button goes into
+
 /* ---------- download a slide as a picture (1920 x 1080 PNG) ---------- */
 var h2cPromise=null;
 function h2c(){
@@ -348,9 +397,9 @@ function inlineSvg(root){
     var r=svg.getBoundingClientRect();svg.setAttribute('width',r.width);svg.setAttribute('height',r.height);
   });
 }
-function capture(i){
+function capture(src){
   return h2c().then(function(html2canvas){
-    var src=$$('#dDeck .slide')[i],host=document.createElement('div'),c=src.cloneNode(true);
+    var host=document.createElement('div'),c=src.cloneNode(true);
     host.className='pngHost';c.classList.add('on','cap');c.removeAttribute('aria-label');c.removeAttribute('contenteditable');host.appendChild(c);document.body.appendChild(host);
     return (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){
       inlineSvg(c);
@@ -359,17 +408,18 @@ function capture(i){
     }).then(function(canvas){host.remove();return canvas;},function(err){host.remove();throw err;});
   }).then(function(canvas){return new Promise(function(ok){canvas.toBlob(ok,'image/png');});});
 }
-function pngName(i){
-  var t=allTitles()[i].toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-  return 'CA-dashboard-'+(i<9?'0':'')+(i+1)+'-'+t+'-'+iso(new Date())+'.png';
+function pngName(sec){
+  var i=+sec.dataset.idx,t=allTitles()[i].toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),pg=sec.dataset.page;
+  return 'CA-dashboard-'+(i<9?'0':'')+(i+1)+'-'+t+(pg!=null&&listCount()>1?'-page-'+(+pg+1):'')+'-'+iso(new Date())+'.png';
 }
 function saveBlob(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},2000);}
 function pngMsg(t){var el=$('#pdfMsg');el.hidden=!t;el.textContent=t||'';}
+/* list: the slide sections to save, each as its own picture (the project list gives one per page) */
 function downloadPng(list){
   var bs=[$('#dPng'),$('#dPngAll')];bs.forEach(function(b){b.disabled=true;});
-  var n=0,run=list.reduce(function(p,i){return p.then(function(){pngMsg('Making the picture of slide '+(i+1)+(list.length>1?' ('+(++n)+' of '+list.length+')':'')+'…');
-    return capture(i).then(function(blob){saveBlob(blob,pngName(i));});});},Promise.resolve());
+  var n=0,run=list.reduce(function(p,sec){return p.then(function(){pngMsg('Making the picture of slide '+(+sec.dataset.idx+1)+(list.length>1?' ('+(++n)+' of '+list.length+')':'')+'…');
+    return capture(sec).then(function(blob){saveBlob(blob,pngName(sec));});});},Promise.resolve());
   run.then(function(){pngMsg(list.length>1?list.length+' pictures downloaded (1920 x 1080).':'Picture downloaded (1920 x 1080): paste it into a slide.');setTimeout(function(){pngMsg('');},5000);},
     function(err){pngMsg('The picture could not be made: '+err.message);}).then(function(){bs.forEach(function(b){b.disabled=false;});});
 }
@@ -380,13 +430,21 @@ document.addEventListener('click',function(e){
   if(t.dataset.slide!=null){go(+t.dataset.slide);return;}
   if(t.id==='dPrev'){go(SLIDE-1);return;}
   if(t.id==='dNext'){go(SLIDE+1);return;}
+  if(t.id==='dPgPrev'||t.id==='dPgNext'){LPAGE=Math.max(0,Math.min(listCount()-1,LPAGE+(t.id==='dPgNext'?1:-1)));paintPos();return;}
   if(t.id==='dPresent'){var d=$('#dDeck');if(document.fullscreenElement)document.exitFullscreen();else if(d.requestFullscreen)d.requestFullscreen().catch(function(){});return;}
   if(t.id==='dPrint'){window.print();return;}
-  if(t.id==='dPng'){downloadPng([SLIDE]);return;}
-  if(t.id==='dPngAll'){downloadPng(allTitles().map(function(x,i){return i;}).filter(function(i){return i!==allTitles().length-1;}));return;}
+  if(t.id==='dPng'){downloadPng([sectionOf(SLIDE,LPAGE)]);return;}
+  if(t.id==='dPngAll'){downloadPng($$('#dDeck .slide'));return;}
   if(t.id==='dEdit'){setEditing(!EDITING);if(EDITING){var on=$('#dDeck .slide.on');if(on)on.focus();}return;}
   if(t.id==='dReset'){paintDeck();return;}
-  if(t.id==='dPhotos'){openPhotos($('#phPanel').hidden);return;}
+  if(t.id==='dPhotos'){openPhotos($('#phPanel').hidden);if(!$('#phPanel').hidden)openHeadings(false);return;}
+  if(t.id==='dHeads'){openHeadings($('#hdPanel').hidden);return;}
+  if(t.id==='hdClose'){openHeadings(false);return;}
+  if(t.id==='hdDefault'){setHeading(hdTarget(),null);paintHeadings();return;}
+  if(t.id==='hdAllDefault'){for(var q=0;q<NV;q++)setHeading(q,null);paintHeadings();return;}
+  if(t.dataset.token){var box=HD_FOCUS||$('#hdTitle'),at=box.selectionStart==null?box.value.length:box.selectionStart;
+    box.value=box.value.slice(0,at)+t.dataset.token+box.value.slice(box.selectionEnd==null?at:box.selectionEnd);box.focus();
+    var own=box.closest('.hdopt').querySelector('input[type=radio]');own.checked=true;hdApply();return;}
   if(t.id==='phClose'){openPhotos(false);return;}
   if(t.id==='phShuffle'){shufflePhotos();return;}
   if(t.id==='phDefault'){for(var k=0;k<NV;k++)setPhoto(k,null);return;}
@@ -419,16 +477,19 @@ document.addEventListener('change',function(e){
   }
   if(t.id==='dUndated'){F.undated=t.checked;changed();return;}
   if(t.id==='phFile'){uploadPhotos(t.files);return;}
+  if(t.name==='hdT'||t.name==='hdS'){hdApply();return;}
   if(t.id==='dVer'){F.ver=t.checked;changed();return;}
 });
 document.addEventListener('input',function(e){
   if(e.target.id==='dSearch'){F.q=e.target.value;paintList();return;}
   if(EDITING&&e.target.closest&&e.target.closest('#dDeck')){EDITED=true;$('#dReset').hidden=false;}
+  if(e.target.closest&&e.target.closest('#hdPanel')&&e.target.type==='text'){var own=e.target.closest('.hdopt').querySelector('input[type=radio]');own.checked=true;hdApply();}
 });
 document.addEventListener('keydown',function(e){
   var tag=(e.target.tagName||'').toLowerCase();if(tag==='input'||tag==='select'||tag==='textarea'||e.target.isContentEditable)return;
-  if(e.key==='ArrowRight'||e.key==='PageDown'){go(SLIDE+1);e.preventDefault();}
-  else if(e.key==='ArrowLeft'||e.key==='PageUp'){go(SLIDE-1);e.preventDefault();}
+  var onList=SLIDE===allTitles().length-1;
+  if(e.key==='ArrowRight'||e.key==='PageDown'){if(onList&&LPAGE<listCount()-1){LPAGE++;paintPos();}else go(SLIDE+1);e.preventDefault();}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){if(onList&&LPAGE>0){LPAGE--;paintPos();}else go(SLIDE-1);e.preventDefault();}
   else if(e.key==='Home'){go(0);}else if(e.key==='End'){go(allTitles().length-1);}
   else if(e.key==='Escape'){var p=$('#dPanel');if(p&&!p.hidden){p.hidden=true;$('#dPickBtn').setAttribute('aria-expanded','false');}}
 });
@@ -456,7 +517,8 @@ load().then(function(j){
   if(ME.isAdmin===false){say('Only admins see the dashboard: it shows the costs of every project.');return;}
   ALL=((j.projects)||[]).map(shape);
   CATS=j.valueCats||{};
-  readPhotos();
+  readPhotos();readHeadings();
+  document.addEventListener('focusin',function(e){if(e.target.closest&&e.target.closest('#hdPanel')&&e.target.type==='text')HD_FOCUS=e.target;});
   readChoice();
   say('');$('#dApp').hidden=false;
   paintFilter();paintDeck();

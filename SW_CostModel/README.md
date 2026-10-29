@@ -102,7 +102,10 @@ in-progress and all projects, and by Business KPI), effort, status, dates (time 
 (man-hours saved → FTE at 2,740 h, downtime avoided, energy saved, ₹ value a year by category). A figure that nobody has recorded shows as 0 with a note.
 **Edit** lets you change any word or number on the slides before taking the picture (it is not saved; **Reset to the register** or changing the choice
 draws the slides again). **Download PNG** saves the slide on screen as a 1920 x 1080 picture to paste into PowerPoint; **All slides as PNG** saves every
-slide but the project list. **Photos** chooses the header photo of the slide on screen from the library (42 plant photos in `web/assets/img`),
+slide but the project list. **Headings** offers four ready-made headings and three subheadings for each visual slide, with the figures filled in, or your own text; words in braces
+such as `{avoided}`, `{projects}`, `{pct}`, `{fte}`, `{value}`, `{period}` fill in from the register (the panel lists them all). The choice is kept in that
+browser; a long heading gets smaller type so the slide still fits. The project list slide shows 14 projects a page (**Page ‹ ›** or the arrow keys);
+printing and **All slides as PNG** include every page. **Photos** chooses the header photo of the slide on screen from the library (42 plant photos in `web/assets/img`),
 **Shuffle** gives each visual slide a different one, and **Upload photos…** adds your own (JPEG, PNG or WebP, made smaller to at most 1,600 px wide).
 The choice and the uploads are kept in that browser only (up to 12 uploads); nothing is sent to the server. To add photos for everyone, copy them into
 `web/assets/img` and add their names to `LIBRARY` in `assets/js/dashboard-visual.js`.

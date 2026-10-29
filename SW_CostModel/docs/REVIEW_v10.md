@@ -53,6 +53,7 @@ About 4,400 lines of C# and JavaScript, 7 SQL scripts, documentation in `docs/`.
    man-hours saved, downtime, energy, ₹ value by category; `projects&lite=1` now carries each entry's benefits). **Edit** changes words and numbers in place
    for one picture (not saved); every slide downloads as a 1920 x 1080 PNG (local html2canvas) for PowerPoint. **Photos**: choose, shuffle or upload
    the header photos (library of 42 in `web/assets/img`; uploads kept in the browser only).
+   **Headings**: ready-made or own heading and subheading per visual slide, with `{words}` filled in from the register. The project list is paged (14 a page) so every page fits a slide and a picture.
 
 Deploy: run `02_create_tables.sql` again (adds StartDate / EndDate) and then `08_project_dates.sql` **before** copying the new files; rebuild and publish (C# files changed);
 copy `Web.config` changes into the server's own `Web.config` (keep its connection string and password hash); hard-refresh the browser.

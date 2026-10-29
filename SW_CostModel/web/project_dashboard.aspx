@@ -61,17 +61,33 @@
       <button type="button" class="btn sm" id="dPrev" aria-label="Previous slide">&#8249; Previous</button>
       <span id="dPos" class="dpos" aria-live="polite"></span>
       <button type="button" class="btn sm" id="dNext" aria-label="Next slide">Next &#8250;</button>
+      <span class="dpager" id="dPager" hidden><button type="button" class="btn sm" id="dPgPrev" aria-label="Previous page of the project list">&#8249; Page</button><button type="button" class="btn sm" id="dPgNext" aria-label="Next page of the project list">Page &#8250;</button></span>
       <span class="dctl-gap"></span>
       <button type="button" class="btn sm" id="dEdit" aria-pressed="false" title="Change the words and numbers on the slides before downloading a picture">Edit</button>
       <button type="button" class="btn sm" id="dReset" hidden title="Draw the slides again from the register">Reset to the register</button>
+      <button type="button" class="btn sm" id="dHeads" aria-expanded="false" aria-controls="hdPanel" title="Choose or write the heading and subheading of the visual slides">Headings</button>
       <button type="button" class="btn sm" id="dPhotos" aria-expanded="false" aria-controls="phPanel" title="Choose, shuffle or upload the photos of the visual slides">Photos</button>
       <button type="button" class="btn sm" id="dPng">Download PNG</button>
-      <button type="button" class="btn sm" id="dPngAll" title="Every slide except the project list">All slides as PNG</button>
+      <button type="button" class="btn sm" id="dPngAll" title="Every slide, and every page of the project list">All slides as PNG</button>
       <button type="button" class="btn sm" id="dPresent">Present</button>
       <button type="button" class="btn sm" id="dPrint">Print</button>
     </div>
     <p class="msg dedit" id="dEditNote" hidden>Editing: click any word or number on a slide and type. The changes are only for the picture or print: they are not saved,
       and the slides are drawn again from the register when you change the choice of projects or press <b>Reset to the register</b>.</p>
+    <%-- Headings: ready-made headings and subheadings for the visual slide on screen, or your own; {words} fill in from the register; kept in this browser --%>
+    <div class="phpanel hdpanel" id="hdPanel" hidden>
+      <div class="phhead">
+        <b id="hdFor"></b>
+        <button type="button" class="btn sm" id="hdDefault">Default for this slide</button>
+        <button type="button" class="btn sm" id="hdAllDefault">Default for all slides</button>
+        <button type="button" class="btn sm" id="hdClose" aria-label="Close">×</button>
+      </div>
+      <div class="hdcols">
+        <fieldset><legend>Heading</legend><div id="hdTitles"></div></fieldset>
+        <fieldset><legend>Subheading</legend><div id="hdSubs"></div></fieldset>
+      </div>
+      <p class="note" id="hdTokens"></p>
+    </div>
     <%-- Photos: the header picture of the slide on screen, from the library (assets/img) or uploaded; kept in this browser only --%>
     <div class="phpanel" id="phPanel" hidden>
       <div class="phhead">

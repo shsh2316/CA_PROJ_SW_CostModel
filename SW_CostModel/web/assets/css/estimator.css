@@ -380,13 +380,15 @@ table.rep tr.total td{background:var(--steel-soft)}
 .dlegend i.ca{background:var(--steel)}.dlegend i.cb{background:var(--amber)}
 .dtop{margin:0;padding:0 0 0 1.4em;overflow:auto}
 .dtop li{padding:calc(var(--u)*.35) 0;border-bottom:1px solid var(--line)}
-.dtop li span{display:block}
-.dtop li small{display:block;color:var(--muted);font-size:.85em}
+.dtop li span{display:block;white-space:nowrap;overflow:hidden}
+.dtop li small{display:block;color:var(--muted);font-size:.85em;white-space:nowrap;overflow:hidden}
 .dtop li b{color:var(--steel);font-variant-numeric:tabular-nums}
 .slide .note,.slide .empty{font-size:calc(var(--u)*1.05);margin:0}
 .slist{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:4px}
 .slist table.rep{min-width:0;font-size:calc(var(--u)*1.05)}
-.slist table.rep td.c-title{width:auto;max-width:none;min-width:14em}
+.slist table.rep td.c-title{width:auto;max-width:none;min-width:14em;white-space:nowrap}
+.slist table.rep td{white-space:nowrap}
+.shead .spage{font-size:.45em;font-weight:500;color:var(--muted);margin-left:.6em}
 .slist table.rep td{padding:calc(var(--u)*.45) calc(var(--u)*.55)}
 .deck:fullscreen{background:var(--bg);display:flex;align-items:center;justify-content:center;padding:2vh 2vw}
 .deck:fullscreen .slide.on{width:min(96vw,170vh);max-width:none;box-shadow:none}
