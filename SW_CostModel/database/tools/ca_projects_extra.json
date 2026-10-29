@@ -1,0 +1,35 @@
+{
+  "source": "Provided by the user, 29 Oct 2026 (not in CA_Projects_List_As_of_July_2026.xlsx)",
+  "note": "Projects added by hand with the benefits as written by the owner. Status was not given: treated as live (benefits reported). Only Paradeep Ports has a cost.",
+  "hoursPerManDay": 8,
+  "projects": [
+    {
+      "name": "SMP2 Digital Transformation",
+      "location": "Hazira Operations",
+      "costRs": null,
+      "periodNote": "September 2026 figures only; not annualised",
+      "text": "Data-driven heat-cycle analysis identifies 25.6 h of recoverable furnace time (~15 additional heats) by bringing slower heats to the median tap-to-tap time (79 min). Quickest gains: blowing (7.0 min/heat above median) and arcing (10.5 min/heat above median) in the slowest quarter of heats. Aligning Conarc3 to Conarc2 adds ~1.8 h.",
+      "stated": [
+        { "what": "Recoverable furnace time (September 2026)", "kind": "output", "before": "", "after": "25.6 h, ~15 more heats", "quote": "25.6 h of recoverable furnace time (~15 additional heats)" },
+        { "what": "Blowing, slowest quarter of heats", "kind": "tat", "before": "", "after": "7.0 min/heat above median (79 min)", "quote": "blowing (7.0 min/heat above median)" },
+        { "what": "Arcing, slowest quarter of heats", "kind": "tat", "before": "", "after": "10.5 min/heat above median (79 min)", "quote": "arcing (10.5 min/heat above median)" },
+        { "what": "Conarc3 aligned to Conarc2", "kind": "output", "before": "", "after": "~1.8 h more furnace time", "quote": "Aligning Conarc3 to Conarc2 adds ~1.8 h" }
+      ]
+    },
+    {
+      "name": "Paradeep Ports",
+      "location": "Paradeep",
+      "costRs": 1700000,
+      "text": "Manual assessment per shipment drops from 360 min to 60 min, an 83.3% reduction. Total time saved is 36,000 min per year, which is 600 man-hours per year. Total project cost was ₹17,00,000. That is the investment, not a savings figure.",
+      "annualMinutes": 36000,
+      "annualHours": 600,
+      "beforeMinPerUnit": 360,
+      "afterMinPerUnit": 60,
+      "stated": [
+        { "what": "Manual assessment per shipment", "kind": "effort", "before": "360 min", "after": "60 min", "beforeMin": 360, "afterMin": 60, "quote": "drops from 360 min to 60 min, an 83.3% reduction" },
+        { "what": "Time saved per year", "kind": "effort", "before": "", "after": "36,000 min = 600 man-hours", "quote": "Total time saved is 36,000 min per year, which is 600 man-hours per year" },
+        { "what": "Project cost (investment, not a saving)", "kind": "cost", "before": "", "after": "₹17,00,000", "quote": "Total project cost was ₹17,00,000" }
+      ]
+    }
+  ]
+}

@@ -2,8 +2,11 @@
    Derives the figures for the "CA projects, Nov 2025 to Nov 2026" slides from the Central Automation project list workbook.
 
    Usage (Node 18+ with Playwright installed; Chromium is used headless):
-     node derive_ca_projects_deck.js "CA_Projects_List_As_of_July_2026.xlsx" <output folder> [period end, yyyy-mm-dd; default 2026-11-30]
+     node derive_ca_projects_deck.js "CA_Projects_List_As_of_July_2026.xlsx" <output folder> [period end, yyyy-mm-dd; default 2026-11-30] [extra projects .json]
    Writes <output folder>\deck_data.json (every number on the slides) and <output folder>\projects.csv (one row per project in scope).
+
+   Extra projects (4th argument, ca_projects_extra.json): projects typed in by hand that are not in the workbook, with their stated figures. They are counted
+   (listed projects + extra), but never costed or compared with the benchmark: only a stated cost is shown. Their quotations are checked against their own text.
 
    Which projects: those whose Start / End dates overlap 1 Nov 2025 to the period end (30 Nov 2026 unless given), plus every project whose status is In Progress
    (dated outside that period, or with no dates). "Failed" projects are left out.
@@ -26,7 +29,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-const [xlsxPath, outDir, periodEnd] = process.argv.slice(2);
+const [xlsxPath, outDir, periodEnd, extraPath] = process.argv.slice(2);
 if (!xlsxPath || !outDir) { console.error('Usage: node derive_ca_projects_deck.js <workbook.xlsx> <output folder>'); process.exit(2); }
 
 const WEB = path.resolve(__dirname, '..', '..', 'web');
@@ -199,6 +202,7 @@ STATED.forEach((x) => {
         pd: R.pd, pdB: B.pd, people: R.headcount, labour: R.dev, labourB: B.dev, eff: B.eff };
     });
   }, scope.map((p) => ({ name: p.name, type: p.type, days: p.days, cx: p.cx, level: p.level, people: p.people })));
+  const midRate = await page.evaluate(() => +window.__CA.M.man.rates.Mid);   // manpower cost per person-day, Mid level, from the masters
   await browser.close();
   if (pageErrors.length) console.error('Page errors:', pageErrors.slice(0, 3));
   scope.forEach((p, i) => Object.assign(p, { c: costed[i] }));
@@ -233,9 +237,27 @@ STATED.forEach((x) => {
   });
   const by = (f) => { const m = {}; scope.forEach((p) => { const k = f(p) || 'Not given'; (m[k] = m[k] || []).push(p); }); return Object.keys(m).map((k) => Object.assign({ key: k }, tot(m[k]))).sort((a, b) => b.tco - a.tco); };
   const themeCount = THEMES.map((t) => ({ theme: t[0], n: scope.filter((p) => p.themes.includes(t[0])).length, examples: scope.filter((p) => p.themes.includes(t[0])).slice(0, 4).map((p) => p.name) }));
+  /* ---------- projects added by hand (extra file) ---------- */
+  let added = [];
+  if (extraPath) {
+    const X = JSON.parse(fs.readFileSync(extraPath, 'utf8')), hpd = X.hoursPerManDay || 8;
+    added = X.projects.map((a) => {
+      const hay = norm(a.text).toLowerCase();
+      a.stated.forEach((s) => { if (!hay.includes(norm(s.quote).toLowerCase())) throw new Error('The text "' + s.quote + '" is not in the text given for ' + a.name); });
+      const stated = a.stated.map((s) => { const o = Object.assign({}, s); if (o.beforeMin != null) o.less = pctLess(o.beforeMin, o.afterMin); return o; });
+      const o = { name: a.name, location: a.location, source: X.source, periodNote: a.periodNote || '', text: a.text, costRs: a.costRs, stated, live: true };
+      if (a.annualHours != null) {
+        o.annualHours = a.annualHours; o.fte = a.annualHours / HOURS_PER_FTE; o.manDays = a.annualHours / hpd;
+        o.unitsPerYear = a.annualMinutes / (a.beforeMinPerUnit - a.afterMinPerUnit);       // shipments a year, from the two stated numbers
+        o.midRatePerDay = midRate; o.valueRsPerYear = o.manDays * midRate;                 // DERIVED: the saved hours at the Mid rate of the masters
+        if (a.costRs) o.paybackYears = a.costRs / o.valueRsPerYear;
+      }
+      return o;
+    });
+  }
   const data = {
-    source: path.basename(xlsxPath).replace(/^[0-9a-f]{8}-/i, ''), period: [iso(W0), iso(W1)],
-    counts: { workbook: all.length, inScope: scope.length, byGroup: by((p) => p.group).map((g) => [g.key, g.n]), left: left.length,
+    added, source: path.basename(xlsxPath).replace(/^[0-9a-f]{8}-/i, ''), period: [iso(W0), iso(W1)],
+    counts: { workbook: all.length, inScope: scope.length, addedByHand: added.length, inScopeWithAdded: scope.length + added.length, byGroup: by((p) => p.group).map((g) => [g.key, g.n]), left: left.length,
       leftByReason: Object.entries(left.reduce((m, p) => { const k = leftWhy(p); m[k] = (m[k] || 0) + 1; return m; }, {})) },
     total: tot(scope), byGroup: by((p) => p.group), byKpi: by((p) => p.kpi), byType: by((p) => p.work), byStatus: by((p) => (p.inProgress ? 'In progress' : 'In use')),
     withoutAnyBenefitText: scope.filter((p) => !p.themes.length).length, withNoTextAtAll: scope.filter((p) => !norm(p.benefit) && !norm(p.desc)).length, themes: themeCount, stated, calGainedInScope: scope.filter((p) => p.gained > 0).map((p) => ({ sr: p.sr, name: p.name, gained: p.gained })),
@@ -261,6 +283,7 @@ STATED.forEach((x) => {
   console.log('Cost CA / bench   : one-time', m(T.oneTime), '/', m(T.oneTimeB), '| yearly', m(T.yearly), '/', m(T.yearlyB), '| total', m(T.tco), '/', m(T.tcoB));
   console.log('Manpower CA/bench :', m(T.labour), '/', m(T.labourB), '| person-days', m(T.pd), '/', m(T.pdB));
   console.log('Themes            :', themeCount.map((t) => t.n + ' ' + t.theme).join(' | '), '| no theme:', data.withoutAnyBenefitText, '| no text at all:', data.withNoTextAtAll);
+  console.log('Added by hand     :', added.map((a) => a.name + (a.valueRsPerYear ? ' (' + Math.round(a.annualHours) + ' h = ' + a.fte.toFixed(2) + ' FTE, value ' + Math.round(a.valueRsPerYear) + '/yr at ' + midRate + '/day, payback ' + a.paybackYears.toFixed(2) + ' y)' : '')).join(' | ') || 'none');
   console.log('Stated figures    :', stated.length, '| candidates in', data.candidates.length, 'projects | Cal-2 in scope:', data.calGainedInScope.length);
   console.log('Written           :', path.join(outDir, 'deck_data.json'), 'and projects.csv');
 })().catch((e) => { console.error(e); process.exit(1); });
