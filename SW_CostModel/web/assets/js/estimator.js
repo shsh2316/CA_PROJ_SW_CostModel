@@ -70,7 +70,7 @@ var DEF0={
   lic:{dbId:'sqlstd',dbName:'',dbPrice:0,dbPriceB:0,dbMin:0,dbSupport:0,dbExtra:0,osId:'win',osName:'',osPerServer:0,osPerServerB:0,calPerUser:0,calPerUserB:0},
   other:[],
   value:{items:[]},
-  reg:{fy:'',kind:'new',status:'completed',charged:0,valueOverride:0,note:'',reply:''}
+  reg:{fy:'',kind:'new',status:'completed',start:'',end:'',charged:0,valueOverride:0,note:'',reply:''}
 };
 
 /* ================= helpers ================= */
@@ -188,6 +188,8 @@ function newEstimate(){
   ensureQuote(s);
   return s;
 }
+/* a project date as yyyy-mm-dd, or '' */
+function isoDate(v){v=String(v==null?'':v).trim();return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))?v:'';}
 function hydrate(str){
   var n=newEstimate(),raw={};
   try{raw=JSON.parse(str);merge(n,raw);}catch(e){}
@@ -219,6 +221,7 @@ function sane(n){
   n.model=inSet(n.model,['once','yearly'],'yearly');
   n.reg.kind=inSet(n.reg.kind,Object.keys(KIND),'new');
   n.reg.status=inSet(n.reg.status,Object.keys(STAT),'completed');
+  n.reg.start=isoDate(n.reg.start);n.reg.end=isoDate(n.reg.end);
   var i=n.infra;
   i.mode=inSet(i.mode,['onprem','cloud'],'onprem');
   i.env=inSet(i.env,Object.keys(ENV_N),'prod');
@@ -380,6 +383,8 @@ var P_BASICS=[
   F('Financial year','reg.fy','select',{options:FY_OPTS,hint:'April to March'}),
   F('Record as','reg.kind','select',{options:Object.keys(KIND).map(function(k){return [k,KIND[k]];})}),
   F('Project status','reg.status','select',{options:Object.keys(STAT).map(function(k){return [k,STAT[k]];})}),
+  F('Start date','reg.start','date',{hint:'When the work starts (dashboard date filter)'}),
+  F('End date','reg.end','date',{hint:'Empty while the project is running'}),
   F('Duration','days','number',{unit:'working days'}),
   F('Named users','users','number',{unit:'users'}),
   F('Complexity','complexity','select',{num:true,options:function(){var c=M.sw.complexity;return [[c.low,'Low: simple forms and reports'],[c.std,'Standard: typical plant application'],[c.high,'High: integrations, real-time data'],[c.vhigh,'Very high: AI / vision, L2 or PLC-critical']];}})
@@ -1116,7 +1121,7 @@ function figuresOf(st,R){
 function submitEntry(st,R,editId,reply){
   var r=st.reg;
   var entry=Object.assign({key:slug(st.name)+'_'+r.fy+'_'+r.kind,name:st.name||'',type:st.type,model:st.model,fy:r.fy,kind:r.kind,status:r.status,
-    department:st.q.to||'',note:r.note||'',state:savedState(st)},figuresOf(st,R));
+    department:st.q.to||'',note:r.note||'',start:r.start||'',end:r.end||'',state:savedState(st)},figuresOf(st,R));
   return api('submitProject',{id:editId||'',entry:entry,reply:String(reply||'')});
 }
 var BUSY=false;   /* one save, verify or send-back at a time: a double click must not send it twice */
@@ -1527,12 +1532,13 @@ function xlCols(){
   ];
   [1,2,3].forEach(function(n){cols.push(['Benefit '+n,'val.'+n+'.cat','list',benefitOpts],['Benefit '+n+' per year','val.'+n+'.qty','number']);});
   cols.push(['One-time value (₹)','val.once','number'],['Note','reg.note','text']);
+  cols.push(['Start date','reg.start','date'],['End date','reg.end','date']);   // optional: a sheet made before these columns reads without them
   return cols;
 }
 function xlHint(c,d0){
   var k=c[1],o=c[3]?c[3]():null,lab=function(code){var h=(o||[]).filter(function(x){return x[0]===code;})[0];return h?h[1]:'';};
   var hints={name:XL_HINT,'q.prepared':'Your name','reg.fy':'Empty = this year','team.people':'Empty = no manpower','team.level':'Empty = Mid',
-    'need.hw':'Empty = Yes','infra.gpuId':'Only for AI / vision','infra.gpuCount':'Empty = 1 if a GPU model is chosen','val.once':'₹, if any','reg.note':''};
+    'need.hw':'Empty = Yes','infra.gpuId':'Only for AI / vision','infra.gpuCount':'Empty = 1 if a GPU model is chosen','val.once':'₹, if any','reg.note':'','reg.start':'dd/mm/yyyy','reg.end':'dd/mm/yyyy; empty = running'};
   if(k in hints)return hints[k];
   if(/^val\.\d\.cat$/.test(k))return 'Choose a benefit';
   if(/^val\.\d\.qty$/.test(k))return 'Quantity per year, in the unit shown';
@@ -1571,6 +1577,13 @@ function xlPick(o,v){
   var h=o.filter(function(x){var l=norm(x[1]);return l===n||norm(x[0])===n||l.replace(/^fy /,'')===n||l.replace(/\s*\(.*\)$/,'')===n;})[0];
   return h?h[0]:null;
 }
+/* An Excel date (a day number) or text dd/mm/yyyy, dd-mm-yyyy or yyyy-mm-dd -> yyyy-mm-dd, or '' */
+function xlDate(v){
+  if(typeof v==='number'&&v>20000&&v<80000)return new Date(Date.UTC(1899,11,30)+Math.round(v)*864e5).toISOString().slice(0,10);
+  var t=String(v).trim(),m=/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(t);
+  if(m)t=m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+  var d=isoDate(t);return d&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d?d:'';
+}
 function xlNum(v){if(v==null||String(v).trim()==='')return null;var n=typeof v==='number'?v:parseFloat(String(v).replace(/[,₹\s]/g,''));return isFinite(n)&&n>=0?n:NaN;}
 /* book (from XlsxLite.read) -> [{file, line, st, warn} or {file, line, error}], one per project row */
 function xlParse(book,file){
@@ -1578,7 +1591,7 @@ function xlParse(book,file){
   book.names.some(function(nm){var r=book.sheets[nm]||[];if(r[0]&&norm(r[0][0])==='project name'){rows=r;return true;}return false;});
   if(!rows)throw new Error('Not the estimate template: no sheet starts with a "Project name" column.');
   var at={};rows[0].forEach(function(h,i){if(h!=null)at[norm(h)]=i;});
-  var missing=cols.filter(function(c){return !(norm(c[0]) in at);}).map(function(c){return c[0];});
+  var missing=cols.filter(function(c){return c[2]!=='date'&&!(norm(c[0]) in at);}).map(function(c){return c[0];});
   if(missing.indexOf('Project name')>=0)throw new Error('The "Project name" column is missing.');
   var out=[];
   for(var r=1;r<rows.length;r++){
@@ -1599,6 +1612,7 @@ function xlProject(cols,cell,label,missing){
     var v=cell(c),key=c[1];
     if(v==null||String(v).trim()==='')return;
     if(c[2]==='text'){put(s,key,String(v).trim());return;}
+    if(c[2]==='date'){var d=xlDate(v);if(d)put(s,key,d);else warn.push(c[0]+': "'+v+'" is not a date (use dd/mm/yyyy).');return;}
     if(c[2]==='number'){
       var n=xlNum(v);
       if(isNaN(n)){warn.push(c[0]+': "'+v+'" is not a number.');x[key+'.bad']=true;return;}

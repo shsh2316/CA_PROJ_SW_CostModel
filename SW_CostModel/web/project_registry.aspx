@@ -22,6 +22,7 @@
     <a href="project_upload.aspx">Excel upload</a>
     <button type="button" data-page="print">Print</button>
     <a href="project_report.aspx">Report</a>
+    <a href="project_dashboard.aspx">Dashboard</a>
     <a href="<%= ResolveUrl("~/Default.aspx") %>?logout=1">Sign out</a>
   </nav>
 

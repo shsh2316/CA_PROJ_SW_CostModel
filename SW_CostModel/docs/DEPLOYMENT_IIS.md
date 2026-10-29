@@ -57,6 +57,7 @@ the `@DbName` in `01`, and the `CCCConString` in `Web.config`.
 | `database\05_import_projects_csv.sql` | optional, the one-sheet project template saved as CSV (`docs\PROJECT_SHEET.md`) |
 | `database\06_admins_and_checks.sql` | checks only: users, master row counts, the pool account's rights, the register |
 | `database\07_import_ca_projects_list.sql` | optional, one-off: the 190 projects of the CA project list (July 2026) as verified, costed entries (`docs\PROJECT_SHEET.md`) |
+| `database\08_project_dates.sql` | optional, after `07`: start and end dates of the imported projects, for the Dashboard's date filter (only fills dates that are still empty; safe to run again) |
 
 From a command prompt on the SQL Server machine (Windows authentication, stops at the first error):
 
@@ -66,6 +67,7 @@ sqlcmd -S . -E -b -i 01_create_database_and_login.sql
 sqlcmd -S . -E -b -i 02_create_tables.sql
 sqlcmd -S . -E -b -i 03_seed_master_data.sql
 sqlcmd -S . -E -b -i 07_import_ca_projects_list.sql
+sqlcmd -S . -E -b -i 08_project_dates.sql
 ```
 
 (`-S SERVER\INSTANCE` for a named instance. Save the `.sql` files as they are: `07` is plain ASCII on purpose.)
@@ -209,6 +211,11 @@ Current Edge, Chrome or Firefox 126 or later. Internet Explorer is not supported
    merge the file if the new version changed other settings.
 3. Run any new database scripts. **Recalculate with the current masters** (below) needs `02_create_tables.sql` run once more on an existing database:
    it only widens the history check to allow the `recalc` entry and is safe to repeat. Without it, recalculating an entry fails with a constraint error.
+   **v10 (Dashboard, project dates)**: run `02_create_tables.sql` again (or `08_project_dates.sql`, which also adds the columns) **before** copying the new files:
+   the register now has `StartDate` and `EndDate`, and the estimator, report and dashboard read them, so the new build fails with "Invalid column name 'StartDate'"
+   on a database without them. Then run `08_project_dates.sql` for the dates of the imported project list. Rebuild and publish (C# files changed), copy the new pages
+   (`project_dashboard.aspx`, `assets/js/dashboard.js`, `assets/css/dashboard-print.css`). The project CSV for script `05` now has 34 columns (Start date, End date at the end):
+   an older 32-column CSV is rejected with a message; add the two columns (they may be empty).
 4. Browse to the site once (the first request is slow while IIS compiles the page markup). Browsers pick up the new files on the next
    visit (the site sends `Cache-Control: no-cache` for pages, the API and static files).
 

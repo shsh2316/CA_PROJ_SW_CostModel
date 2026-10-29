@@ -28,7 +28,7 @@ public static class ProjectRepository
     /* ================= list ================= */
 
     /// <summary>Admins get every entry; anyone else gets only their own, without cost figures.</summary>
-    public static Dictionary<string, object> List(CurrentUser user)
+    public static Dictionary<string, object> List(CurrentUser user, bool withState = true)
     {
         var projects = new List<object>();
         var byId = new Dictionary<string, Dictionary<string, object>>();
@@ -40,7 +40,7 @@ public static class ProjectRepository
             "SELECT RegisterId, EntryKey, FinYear, Kind, DeliveryModel, Status, ProjectName, ProjectType, Department, " +
             "ValueINR, ValueOriginalINR, BenchmarkValueINR, ChargedINR, OneTimeINR, BenchmarkOneTimeINR, YearlyRunINR, BenchmarkYearlyRunINR, " +
             "PersonDays, TeamSize, ValueCreatedYearlyINR, ValueCreatedOneTimeINR, Note, Workflow, SubmittedBy, SubmittedAt, UpdatedAt, " +
-            "VerifiedBy, VerifiedAt, CostedBy, EstimateJson " +
+            "VerifiedBy, VerifiedAt, CostedBy, StartDate, EndDate" + (withState ? ", EstimateJson " : " ") +
             "FROM dbo.SwProjectRegister" + own;
         foreach (DataRow r in Db.Select(sql).Rows)
         {
@@ -67,6 +67,8 @@ public static class ProjectRepository
             Put(d, "valueYearly", Db.Dec(r, "ValueCreatedYearlyINR"));
             Put(d, "valueOnce", Db.Dec(r, "ValueCreatedOneTimeINR"));
             Put(d, "note", Db.Str(r, "Note"));
+            Put(d, "start", DateOnly(r, "StartDate"));
+            Put(d, "end", DateOnly(r, "EndDate"));
             Put(d, "wf", Db.Str(r, "Workflow"));
             Put(d, "by", Db.Str(r, "SubmittedBy"));
             Put(d, "at", Db.Iso(r, "SubmittedAt"));
@@ -75,7 +77,7 @@ public static class ProjectRepository
             Put(d, "verifiedAt", Db.Iso(r, "VerifiedAt"));
             Put(d, "costedBy", Db.Str(r, "CostedBy"));
             d["costed"] = r["CostedBy"] != DBNull.Value;
-            Put(d, "state", Db.Str(r, "EstimateJson"));
+            if (withState) Put(d, "state", Db.Str(r, "EstimateJson"));
             if (!user.IsAdmin)
             {
                 foreach (string k in CostFields) d.Remove(k);
@@ -129,12 +131,29 @@ public static class ProjectRepository
     }
 
     /// <summary>The register with its signature (taken first: a change made while the list is read only makes the next poll fetch again).</summary>
-    public static Dictionary<string, object> ListWithSignature(CurrentUser user, string sig = null)
+    public static Dictionary<string, object> ListWithSignature(CurrentUser user, string sig = null, bool withState = true)
     {
         sig = sig ?? Signature(user);
-        Dictionary<string, object> reg = List(user);
+        Dictionary<string, object> reg = List(user, withState);
         reg["sig"] = sig;
         return reg;
+    }
+
+    /// <summary>A project date from the request: "yyyy-mm-dd", or empty for none. Anything else is refused.</summary>
+    static object DateArg(IDictionary<string, object> e, string key)
+    {
+        string t = Json.Text(e, key, 10);
+        if (String.IsNullOrEmpty(t)) return null;
+        DateTime d;
+        if (!DateTime.TryParseExact(t, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d) || d.Year < 2000 || d.Year > 2100)
+            throw new ApiException(400, "bad_request", "The " + key + " date is not valid.");
+        return d;
+    }
+
+    /// <summary>A DATE column as "yyyy-mm-dd" (null when empty).</summary>
+    static string DateOnly(DataRow r, string col)
+    {
+        return r.Table.Columns.Contains(col) && r[col] != DBNull.Value ? ((DateTime)r[col]).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : null;
     }
 
     static void Put(Dictionary<string, object> d, string key, object value)
@@ -159,6 +178,9 @@ public static class ProjectRepository
         string fy = Json.Text(e, "fy", 9), kind = Json.Text(e, "kind", 10), status = Json.Text(e, "status", 10);
         string model = Json.Text(e, "model", 10), type = Json.Text(e, "type", 20), key = Json.Text(e, "key", 100);
         string state = Json.Text(e, "state", 4000000);
+        object start = DateArg(e, "start"), end = DateArg(e, "end");
+        if (start is DateTime && end is DateTime && (DateTime)end < (DateTime)start)
+            throw new ApiException(400, "bad_request", "The end date is before the start date.");
         if (String.IsNullOrEmpty(name)) throw new ApiException(400, "bad_request", "Enter the project name in Basics.");
         if (fy == null || !FinYear.IsMatch(fy)) throw new ApiException(400, "bad_request", "The financial year is not valid.");
         if (Array.IndexOf(Kinds, kind) < 0) throw new ApiException(400, "bad_request", "The record type is not valid.");
@@ -195,7 +217,8 @@ public static class ProjectRepository
         {
             "@id", id, "@key", key, "@fy", fy, "@kind", kind, "@model", model, "@status", status,
             "@name", name, "@type", type, "@dept", Json.Text(e, "department", 200),
-            "@note", Json.Text(e, "note", 500), "@by", user.Login, "@state", state, "@costedBy", costed ? user.Login : null
+            "@note", Json.Text(e, "note", 500), "@by", user.Login, "@state", state, "@costedBy", costed ? user.Login : null,
+            "@start", start, "@end", end
         };
         fields.AddRange(Figures(e, costed));
 
@@ -207,9 +230,9 @@ public static class ProjectRepository
             batch.Add(
                 "INSERT dbo.SwProjectRegister (RegisterId, EntryKey, FinYear, Kind, DeliveryModel, Status, ProjectName, ProjectType, Department, " +
                 "ValueINR, BenchmarkValueINR, ChargedINR, OneTimeINR, BenchmarkOneTimeINR, YearlyRunINR, BenchmarkYearlyRunINR, PersonDays, TeamSize, " +
-                "ValueCreatedYearlyINR, ValueCreatedOneTimeINR, Note, Workflow, SubmittedBy, CostedBy, EstimateJson) " +
+                "ValueCreatedYearlyINR, ValueCreatedOneTimeINR, Note, Workflow, SubmittedBy, CostedBy, EstimateJson, StartDate, EndDate) " +
                 "VALUES (@id, @key, @fy, @kind, @model, @status, @name, @type, @dept, " +
-                "@value, @valueB, @charged, @oneTime, @oneTimeB, @yearly, @yearlyB, @pd, @team, @valYear, @valOnce, @note, 'pending', @by, @costedBy, @state)",
+                "@value, @valueB, @charged, @oneTime, @oneTimeB, @yearly, @yearlyB, @pd, @team, @valYear, @valOnce, @note, 'pending', @by, @costedBy, @state, @start, @end)",
                 fields.ToArray());
         }
         else
@@ -219,7 +242,7 @@ public static class ProjectRepository
             batch.Add(
                 "UPDATE dbo.SwProjectRegister SET EntryKey = @key, FinYear = @fy, Kind = @kind, DeliveryModel = @model, Status = @status, " +
                 "ProjectName = @name, ProjectType = @type, Department = @dept, Note = @note, Workflow = 'pending', UpdatedAt = SYSUTCDATETIME(), " +
-                "VerifiedBy = NULL, VerifiedAt = NULL, CostedBy = @costedBy, EstimateJson = @state, " + FigureAssignments + " WHERE RegisterId = @id",
+                "VerifiedBy = NULL, VerifiedAt = NULL, CostedBy = @costedBy, EstimateJson = @state, StartDate = @start, EndDate = @end, " + FigureAssignments + " WHERE RegisterId = @id",
                 fields.ToArray());
         }
 

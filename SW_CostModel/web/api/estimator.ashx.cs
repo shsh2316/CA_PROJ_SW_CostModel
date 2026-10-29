@@ -8,7 +8,7 @@ using System.Web.Management;
 /// <summary>
 /// JSON API for the estimator page. One URL, the action is a query parameter:
 ///   GET  api/estimator.ashx?action=init           signed-in user, masters and register
-///   GET  api/estimator.ashx?action=projects[&sig=...]   ({ unchanged: true } when the register is the same as the signature)
+///   GET  api/estimator.ashx?action=projects[&sig=...][&lite=1]   ({ unchanged: true } when the register is the same as the signature; lite: without the estimates)
 ///   POST api/estimator.ashx?action=saveMaster     { key, doc }                                   admins only
 ///   POST api/estimator.ashx?action=submitProject  { id?, entry, reply? }
 ///   POST api/estimator.ashx?action=verifyProject  { id, updated, costing, adjustedValue?, comment? } admins only
@@ -84,8 +84,12 @@ public class EstimatorApi : IHttpHandler
             {
                 // The page polls every minute. When nothing changed since its copy (same signature), answer in a few bytes instead of the whole register.
                 string sig = ProjectRepository.Signature(user);
-                if (req.QueryString["sig"] == sig) return new Dictionary<string, object> { { "unchanged", true }, { "sig", sig } };
-                return ProjectRepository.ListWithSignature(user, sig);
+                // lite=1 (dashboard): the entries without each saved estimate, which is most of the size
+                bool lite = req.QueryString["lite"] == "1";
+                if (!lite && req.QueryString["sig"] == sig) return new Dictionary<string, object> { { "unchanged", true }, { "sig", sig } };
+                Dictionary<string, object> reg = ProjectRepository.ListWithSignature(user, sig, !lite);
+                if (lite) reg["me"] = Me(user);   // the dashboard needs to know whether this person sees costs
+                return reg;
             }
             case "saveMaster:POST":
                 user.RequireAdmin("Only admins can change masters.");

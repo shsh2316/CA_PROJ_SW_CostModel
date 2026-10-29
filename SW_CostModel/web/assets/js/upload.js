@@ -49,6 +49,7 @@ function paintGuide(){
   body.innerHTML=E.xl.cols().map(function(c){
     var ans='Text';
     if(c[2]==='number')ans='A number';
+    else if(c[2]==='date')ans='A date, dd/mm/yyyy (optional)';
     else if(c[2]==='yesno')ans='Yes or No';
     else if(c[2]==='list')ans=c[3]().map(function(o){return o[1];}).join(', ');
     return '<tr><td><b>'+esc(c[0])+'</b></td><td>'+esc(ans)+'</td><td>'+esc(E.xl.hint(c)||'')+'</td></tr>';
@@ -153,7 +154,7 @@ function summary(){
 function entryOf(st,R){
   var r=st.reg;
   return Object.assign({key:E.slug(st.name)+'_'+r.fy+'_'+r.kind,name:st.name||'',type:st.type,model:st.model,fy:r.fy,kind:r.kind,status:r.status,
-    department:st.q.to||'',note:r.note||'',state:E.savedState(st)},E.figuresOf(st,R));
+    department:st.q.to||'',note:r.note||'',start:r.start||'',end:r.end||'',state:E.savedState(st)},E.figuresOf(st,R));
 }
 async function submit(idx){
   if(busy)return;

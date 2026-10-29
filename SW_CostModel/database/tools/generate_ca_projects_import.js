@@ -22,8 +22,8 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-const [xlsxPath, outPath] = process.argv.slice(2);
-if (!xlsxPath || !outPath) { console.error('Usage: node generate_ca_projects_import.js <workbook.xlsx> <output.sql>'); process.exit(2); }
+const [xlsxPath, outPath, datesPath] = process.argv.slice(2);   // datesPath (optional): also write database\08_project_dates.sql
+if (!xlsxPath || !outPath) { console.error('Usage: node generate_ca_projects_import.js <workbook.xlsx> <output.sql> [08_project_dates.sql]'); process.exit(2); }
 
 const WEB = path.resolve(__dirname, '..', '..', 'web');
 const DB_NAME = 'CA_PROJ_COST_MODEL';
@@ -91,7 +91,12 @@ function toProjects(rows) {
     const fte = typeof r[C.fte] === 'number' && r[C.fte] > 0 ? r[C.fte] : 1;
     const gained = typeof r[C.cal2] === 'number' && r[C.cal2] > 0 ? r[C.cal2] : 0;
     const failed = key(r[C.status]) === 'failed';
+    /* project dates for the register (script 08): "till date" = still running (no end date); an end before the start is left out */
+    const dStart = start ? iso(start) : null;
+    let dEnd = key(r[C.end]) === 'till date' ? null : (end ? iso(end) : null);
+    if (dStart && dEnd && dEnd < dStart) dEnd = null;
     out.push({
+      dStart, dEnd,
       sr: r[C.sr], name: norm(r[C.name]), loc: norm(r[C.loc]), kpi: norm(r[C.kpi]), work: norm(r[C.work]), dept: norm(r[C.dept]),
       statusText: norm(r[C.status]), failed, status: statusOf(r[C.status]), kind: key(r[C.work]) === 'maintenance' ? 'amc' : 'new',
       type: projectType(r[C.work]), cx: complexityCode(r[C.work]), level: level(r[C.work]), people: fte, days, basis,
@@ -282,6 +287,50 @@ const num = (n) => String(Math.round(n * 100) / 100);
   L.push('SET NOEXEC OFF;');
   L.push('');
   fs.writeFileSync(outPath, L.join('\r\n'), 'ascii');   // ASCII only: no BOM
+
+  /* ---------- 08: project dates of the imported entries ---------- */
+  if (datesPath) {
+    const withDate = entries.filter((e) => e.dStart || e.dEnd);
+    const M = [];
+    M.push('/* ==================================================================');
+    M.push('   Central Automation - Estimate and Quotation');
+    M.push('   08. Project start and end dates for the projects imported by script 07 (GENERATED: do not edit by hand)');
+    M.push('');
+    M.push('   Source      ' + SOURCE_NAME + ' (' + withDate.length + ' of ' + entries.length + ' projects have a date)');
+    M.push('   Generated   by database\\tools\\generate_ca_projects_import.js, with the same entries and RegisterIds as script 07.');
+    M.push('   What        adds StartDate / EndDate to dbo.SwProjectRegister if missing (also done by script 02), then fills them for the');
+    M.push('               imported entries that have no dates yet. "till date" = still running (no end date); "till next year" = 31 Mar 2027;');
+    M.push('               an end date before the start date is left out. The dashboard filters projects by these dates.');
+    M.push('   Safe to run again: an entry that already has a date is not changed.');
+    M.push('   ================================================================== */');
+    M.push('');
+    M.push('USE ' + DB_NAME + ';');
+    M.push('GO');
+    M.push("IF DB_NAME() <> N'" + DB_NAME + "'");
+    M.push('BEGIN');
+    M.push("    RAISERROR('Not connected to " + DB_NAME + ": nothing was changed.', 16, 1);");
+    M.push('    SET NOEXEC ON;   -- skip the rest of the script');
+    M.push('END');
+    M.push('GO');
+    M.push("IF COL_LENGTH('dbo.SwProjectRegister', 'StartDate') IS NULL ALTER TABLE dbo.SwProjectRegister ADD StartDate DATE NULL;");
+    M.push("IF COL_LENGTH('dbo.SwProjectRegister', 'EndDate') IS NULL ALTER TABLE dbo.SwProjectRegister ADD EndDate DATE NULL;");
+    M.push('GO');
+    M.push('SET NOCOUNT ON;');
+    M.push("DECLARE @IdSuffix nvarchar(100) = N'Import';   -- as in script 07");
+    M.push('DECLARE @Set int = 0;');
+    M.push('BEGIN TRANSACTION;');
+    withDate.forEach((e) => {
+      M.push('UPDATE dbo.SwProjectRegister SET StartDate = ' + (e.dStart ? "'" + e.dStart + "'" : 'NULL') + ', EndDate = ' + (e.dEnd ? "'" + e.dEnd + "'" : 'NULL') +
+        ' WHERE RegisterId = ' + q(e.entryKey + '_') + ' + @IdSuffix AND StartDate IS NULL AND EndDate IS NULL;   -- #' + e.sr);
+      M.push('SET @Set += @@ROWCOUNT;');
+    });
+    M.push('COMMIT TRANSACTION;');
+    M.push("PRINT CONCAT('Dates set on ', @Set, ' of " + withDate.length + " imported entries (the rest already had dates or are not in the register).');");
+    M.push('GO');
+    M.push('SET NOEXEC OFF;');
+    M.push('');
+    fs.writeFileSync(datesPath, M.join('\r\n'), 'ascii');
+  }
 
   /* ---------- summary ---------- */
   const by = (f) => entries.reduce((m, e) => { m[f(e)] = (m[f(e)] || 0) + 1; return m; }, {});

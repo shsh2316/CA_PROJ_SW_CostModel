@@ -61,6 +61,8 @@ empty cell means), and the projects from line 3 down. Tell users:
 | 27–30 | Benefit 2, Benefit 2 per year, Benefit 3, Benefit 3 per year | as above | – |
 | 31 | One-time value (₹) | a one-time benefit in rupees | – |
 | 32 | Note | text, up to 500 characters | – |
+| 33 | Start date | a date, dd/mm/yyyy (Excel dates also read); optional | – |
+| 34 | End date | a date, dd/mm/yyyy; empty = still running; optional | – |
 
 How it is costed:
 - **Manpower** = team size × duration × the rate for the team level (from the Manpower

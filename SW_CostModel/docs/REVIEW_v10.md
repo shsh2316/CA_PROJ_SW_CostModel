@@ -13,6 +13,7 @@ An offline ASP.NET Web Forms site (IIS, .NET 4.8, SQL Server) for Central Automa
 | `project_registry.aspx` | The estimator: Masters, Registration (step-by-step estimate), Approval (verify, send back, recalculate), Print (quotation) |
 | `project_upload.aspx` | Excel upload: template, one row per project, cost check, submit |
 | `project_report.aspx` | Report: filters, CSV, project detail with history, PDF of each estimate |
+| `project_dashboard.aspx` | Dashboard (v10): five slides for chosen projects or a date range; present full screen or print |
 | `api/estimator.ashx` | JSON API used by the pages |
 
 Costs are worked out in the browser (`estimator.js`) on two bases (Central Automation in-house and a software-company benchmark),
@@ -42,8 +43,14 @@ About 4,400 lines of C# and JavaScript, 7 SQL scripts, documentation in `docs/`.
 3. **Compression switched on** in `Web.config` (`urlCompression`, static and dynamic): pages, scripts and API JSON travel 5 to 10 times smaller.
    Dynamic compression needs the IIS role feature "Dynamic Content Compression" (Server Manager > Web Server > Performance); without it the setting does nothing.
 
-Deploy: rebuild and publish (two `.cs` files changed), copy `Web.config` changes into the server's own `Web.config` (keep its connection string and password hash),
-hard-refresh the browser. No database change.
+4. **Dashboard** (`project_dashboard.aspx`, "Dashboard" in the menu): the register as a deck of slides (Summary, Money, Effort / FTE, Value, project list)
+   for a chosen date range and / or a multi-select of projects, kept in the link. It loads the register without the saved estimates (`projects&lite=1`),
+   draws its charts as inline SVG (no new library), presents full screen and prints one slide per landscape page.
+   To make the date filter possible the register gained **StartDate / EndDate** (Registration Basics, Excel template, CSV import, report detail and CSV),
+   with `database/08_project_dates.sql` filling them for the imported project list.
+
+Deploy: run `02_create_tables.sql` again (adds StartDate / EndDate) and then `08_project_dates.sql` **before** copying the new files; rebuild and publish (C# files changed);
+copy `Web.config` changes into the server's own `Web.config` (keep its connection string and password hash); hard-refresh the browser.
 
 ## Recommendations
 

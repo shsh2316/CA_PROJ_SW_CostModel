@@ -32,7 +32,7 @@ public partial class ProjectReportPage : Page
     };
     static readonly string[][] LogActions = { new[] { "submit", "Submitted" }, new[] { "reply", "Replied" }, new[] { "info", "Asked for information" }, new[] { "verify", "Verified" }, new[] { "recalc", "Recalculated" } };
 
-    enum Fmt { Text, Lookup, Person, Money, Number, Date }
+    enum Fmt { Text, Lookup, Person, Money, Number, Date, Day }
 
     class Col
     {
@@ -52,6 +52,8 @@ public partial class ProjectReportPage : Page
         new Col("ProjectName", "Project", Fmt.Text, null, false, true),
         new Col("Department", "Department / client", Fmt.Text, null, false, true),
         new Col("FinYear", "Financial year", Fmt.Text, null, false, true),
+        new Col("StartDate", "Start date", Fmt.Day, null, false, false),
+        new Col("EndDate", "End date", Fmt.Day, null, false, false),
         new Col("Kind", "Record as", Fmt.Lookup, Kinds, false, true),
         new Col("Status", "Project status", Fmt.Lookup, Statuses, false, true),
         new Col("DeliveryModel", "Delivery model", Fmt.Lookup, Models, false, false),
@@ -368,6 +370,7 @@ public partial class ProjectReportPage : Page
             case Fmt.Money: return Convert.ToDecimal(v, CultureInfo.InvariantCulture).ToString("N0", Inr);
             case Fmt.Number: return Convert.ToDecimal(v, CultureInfo.InvariantCulture).ToString("0.#", CultureInfo.InvariantCulture);
             case Fmt.Date: return FormatDate(v);
+            case Fmt.Day: return v == null || v is DBNull ? "" : ((DateTime)v).ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
             case Fmt.Person: return Person(v);
             case Fmt.Lookup: return Lookup(c.Map, Convert.ToString(v));
             default: return Convert.ToString(v);

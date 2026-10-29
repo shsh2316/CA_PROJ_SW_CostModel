@@ -59,7 +59,8 @@ CREATE TABLE #P (ProjectName nvarchar(400) COLLATE DATABASE_DEFAULT, Department 
     NeedsServers nvarchar(400) COLLATE DATABASE_DEFAULT, HostingModel nvarchar(400) COLLATE DATABASE_DEFAULT, Environments nvarchar(400) COLLATE DATABASE_DEFAULT, CpuCores nvarchar(400) COLLATE DATABASE_DEFAULT, RamGB nvarchar(400) COLLATE DATABASE_DEFAULT,
     StorageTB nvarchar(400) COLLATE DATABASE_DEFAULT, GpuModel nvarchar(400) COLLATE DATABASE_DEFAULT, GpuCount nvarchar(400) COLLATE DATABASE_DEFAULT, DatabaseEngine nvarchar(400) COLLATE DATABASE_DEFAULT, OperatingSystem nvarchar(400) COLLATE DATABASE_DEFAULT,
     YearsOfOwnership nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit1 nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit1Qty nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit2 nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit2Qty nvarchar(400) COLLATE DATABASE_DEFAULT,
-    Benefit3 nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit3Qty nvarchar(400) COLLATE DATABASE_DEFAULT, OneTimeValue nvarchar(400) COLLATE DATABASE_DEFAULT, Note nvarchar(2000) COLLATE DATABASE_DEFAULT);
+    Benefit3 nvarchar(400) COLLATE DATABASE_DEFAULT, Benefit3Qty nvarchar(400) COLLATE DATABASE_DEFAULT, OneTimeValue nvarchar(400) COLLATE DATABASE_DEFAULT, Note nvarchar(2000) COLLATE DATABASE_DEFAULT,
+    StartDate nvarchar(400) COLLATE DATABASE_DEFAULT, EndDate nvarchar(400) COLLATE DATABASE_DEFAULT);
 
 DECLARE @sql nvarchar(max), @set nvarchar(max), @msg nvarchar(2048);
 -- 0x0a ends a row whether the file uses Windows (CR LF) or Unix (LF) line ends; CR is removed below
@@ -70,7 +71,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     SET @msg = ERROR_MESSAGE();
-    RAISERROR (N'Could not read projects.csv: %s Check the folder, that the file is saved as CSV and that it has exactly the template''s 32 columns.', 16, 1, @msg);
+    RAISERROR (N'Could not read projects.csv: %s Check the folder, that the file is saved as CSV and that it has exactly the template''s 34 columns (a template from before October 2026 has 32: download a fresh one, or add empty Start date and End date columns at the end).', 16, 1, @msg);
     RETURN;
 END CATCH
 ALTER TABLE #P ADD Line int IDENTITY(2, 1);   -- spreadsheet line number (line 1 is the headings)
@@ -84,7 +85,7 @@ EXEC (N'UPDATE #P SET ' + @set + N';');
 DELETE #P WHERE ProjectName = N'Required';
 DELETE #P WHERE COALESCE(ProjectName, Department, PreparedBy, FinancialYear, RecordAs, ProjectStatus, DeliveryModel, ProjectType, DurationDays,
     NamedUsers, Complexity, TeamSize, TeamLevel, NeedsServers, HostingModel, Environments, CpuCores, RamGB, StorageTB, GpuModel, GpuCount,
-    DatabaseEngine, OperatingSystem, YearsOfOwnership, Benefit1, Benefit1Qty, Benefit2, Benefit2Qty, Benefit3, Benefit3Qty, OneTimeValue, Note) IS NULL;
+    DatabaseEngine, OperatingSystem, YearsOfOwnership, Benefit1, Benefit1Qty, Benefit2, Benefit2Qty, Benefit3, Benefit3Qty, OneTimeValue, Note, StartDate, EndDate) IS NULL;
 
 -- numbers: allow 1,200 / 1,00,000 / ₹75000
 UPDATE #P SET DurationDays = REPLACE(DurationDays, N',', N''), NamedUsers = REPLACE(NamedUsers, N',', N''), TeamSize = REPLACE(TeamSize, N',', N''),
@@ -140,6 +141,8 @@ SELECT p.*,
     TRY_CONVERT(decimal(12,2), p.GpuCount) AS nGpu, TRY_CONVERT(decimal(12,2), p.YearsOfOwnership) AS nYears,
     TRY_CONVERT(decimal(14,2), p.Benefit1Qty) AS nQty1, TRY_CONVERT(decimal(14,2), p.Benefit2Qty) AS nQty2, TRY_CONVERT(decimal(14,2), p.Benefit3Qty) AS nQty3,
     TRY_CONVERT(decimal(14,2), p.OneTimeValue) AS nOnce,
+    COALESCE(TRY_CONVERT(date, p.StartDate, 103), TRY_CONVERT(date, p.StartDate, 105), TRY_CONVERT(date, p.StartDate, 23)) AS dStart,   -- dd/mm/yyyy, dd-mm-yyyy or yyyy-mm-dd
+    COALESCE(TRY_CONVERT(date, p.EndDate, 103), TRY_CONVERT(date, p.EndDate, 105), TRY_CONVERT(date, p.EndDate, 23)) AS dEnd,
     CAST(NULL AS decimal(12,4)) AS Cx, CAST(NULL AS nvarchar(400)) AS Slug, CAST(NULL AS nvarchar(200)) AS RegisterId
 INTO #Pc FROM #P p;
 UPDATE p SET Cx = (SELECT ValueCA FROM dbo.SwSetting WHERE SettingKey = 'complexity.' + p.CxCode) FROM #Pc p WHERE p.CxCode IS NOT NULL;
@@ -197,6 +200,9 @@ INSERT #Err SELECT p.Line, p.ProjectName, v.col + N' "' + v.raw + N'" is not a n
         ('Years of ownership', p.YearsOfOwnership, p.nYears), ('Benefit 1 per year', p.Benefit1Qty, p.nQty1), ('Benefit 2 per year', p.Benefit2Qty, p.nQty2),
         ('Benefit 3 per year', p.Benefit3Qty, p.nQty3), ('One-time value', p.OneTimeValue, p.nOnce)) v(col, raw, num)
     WHERE v.raw IS NOT NULL AND (v.num IS NULL OR v.num < 0);
+INSERT #Err SELECT p.Line, p.ProjectName, v.col + N' "' + v.raw + N'" is not a date (use dd/mm/yyyy).'
+    FROM #Pc p CROSS APPLY (VALUES ('Start date', p.StartDate, p.dStart), ('End date', p.EndDate, p.dEnd)) v(col, raw, d) WHERE v.raw IS NOT NULL AND v.d IS NULL;
+INSERT #Err SELECT Line, ProjectName, N'End date is before the start date.' FROM #Pc WHERE dEnd < dStart;
 INSERT #Err SELECT p.Line, p.ProjectName, v.col + N' per year is filled but no benefit is chosen.'
     FROM #Pc p CROSS APPLY (VALUES ('Benefit 1', p.Benefit1, p.nQty1), ('Benefit 2', p.Benefit2, p.nQty2), ('Benefit 3', p.Benefit3, p.nQty3)) v(col, cat, qty)
     WHERE v.cat IS NULL AND v.qty > 0;
@@ -234,6 +240,7 @@ SELECT p.Line, p.ProjectName, p.RegisterId,
             p.DbId AS [lic.dbId], p.OsId AS [lic.osId],
             p.nYears AS [amc.years],
             p.Fy AS [reg.fy], p.KindCode AS [reg.kind], p.StatusCode AS [reg.status], ISNULL(p.Note, N'Imported from CSV') AS [reg.note],
+            CONVERT(char(10), p.dStart, 23) AS [reg.start], CONVERT(char(10), p.dEnd, 23) AS [reg.end],
             p.Department AS [q.to], p.PreparedBy AS [q.prepared],
             JSON_QUERY(CASE WHEN p.nTeam > 0
                 THEN (SELECT N'Team' AS role, ISNULL(p.LevelName, 'Mid') AS level, p.nTeam AS people, 100 AS alloc FOR JSON PATH)
@@ -241,7 +248,7 @@ SELECT p.Line, p.ProjectName, p.RegisterId,
             JSON_QUERY(N'[]') AS other,
             JSON_QUERY(ISNULL((SELECT v.cat, v.[desc], v.qty, v.unit, v.rate, v.freq FROM #V v WHERE v.Line = p.Line ORDER BY v.Slot FOR JSON PATH), N'[]')) AS [value.items]
      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS EstimateJson,
-    p.Fy, p.KindCode, p.ModelCode, p.StatusCode, p.TypeCode, p.Department, ISNULL(p.Note, N'Imported from CSV') AS Note,
+    p.Fy, p.KindCode, p.ModelCode, p.StatusCode, p.TypeCode, p.Department, ISNULL(p.Note, N'Imported from CSV') AS Note, p.dStart, p.dEnd,
     (SELECT Workflow FROM dbo.SwProjectRegister r WHERE r.RegisterId = p.RegisterId) AS ExistingWorkflow,
     CAST(NULL AS nvarchar(40)) AS Result,
     CASE WHEN p.nTeam IS NULL THEN N'Team size is empty, so there is no manpower cost.' END AS Warning
@@ -265,12 +272,13 @@ BEGIN TRANSACTION;
         ProjectType = s.TypeCode, Department = s.Department, ValueINR = 0, ValueOriginalINR = NULL, BenchmarkValueINR = 0, ChargedINR = 0,
         OneTimeINR = NULL, BenchmarkOneTimeINR = NULL, YearlyRunINR = NULL, BenchmarkYearlyRunINR = NULL,
         PersonDays = s.PersonDays, TeamSize = s.TeamSize, ValueCreatedYearlyINR = ISNULL(s.ValueYearly, 0), ValueCreatedOneTimeINR = ISNULL(s.ValueOnce, 0),
-        Note = s.Note, Workflow = 'pending', UpdatedAt = SYSUTCDATETIME(), VerifiedBy = NULL, VerifiedAt = NULL, CostedBy = NULL, EstimateJson = s.EstimateJson
+        Note = s.Note, Workflow = 'pending', UpdatedAt = SYSUTCDATETIME(), VerifiedBy = NULL, VerifiedAt = NULL, CostedBy = NULL, EstimateJson = s.EstimateJson,
+        StartDate = s.dStart, EndDate = s.dEnd
     WHEN NOT MATCHED THEN INSERT
         (RegisterId, EntryKey, FinYear, Kind, DeliveryModel, Status, ProjectName, ProjectType, Department, ValueINR, BenchmarkValueINR, ChargedINR,
-         PersonDays, TeamSize, ValueCreatedYearlyINR, ValueCreatedOneTimeINR, Note, Workflow, SubmittedBy, CostedBy, EstimateJson)
+         PersonDays, TeamSize, ValueCreatedYearlyINR, ValueCreatedOneTimeINR, Note, Workflow, SubmittedBy, CostedBy, EstimateJson, StartDate, EndDate)
     VALUES (s.RegisterId, s.EntryKey, s.Fy, s.KindCode, s.ModelCode, s.StatusCode, s.ProjectName, s.TypeCode, s.Department, 0, 0, 0,
-         s.PersonDays, s.TeamSize, ISNULL(s.ValueYearly, 0), ISNULL(s.ValueOnce, 0), s.Note, 'pending', @SubmittedBy, NULL, s.EstimateJson);
+         s.PersonDays, s.TeamSize, ISNULL(s.ValueYearly, 0), ISNULL(s.ValueOnce, 0), s.Note, 'pending', @SubmittedBy, NULL, s.EstimateJson, s.dStart, s.dEnd);
 
     INSERT dbo.SwProjectLog (RegisterId, Action, ActionBy, Comment)
     SELECT RegisterId, 'submit', @SubmittedBy, N'Imported from CSV' FROM #Out WHERE Result <> N'Skip: already verified';

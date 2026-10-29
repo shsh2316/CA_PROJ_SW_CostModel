@@ -19,6 +19,7 @@
     <a href="project_registry.aspx">Estimator</a>
     <a href="project_upload.aspx">Excel upload</a>
     <a href="project_report.aspx" aria-current="page">Report</a>
+    <a href="project_dashboard.aspx">Dashboard</a>
     <a href="<%= ResolveUrl("~/Default.aspx") %>?logout=1">Sign out</a>
   </nav>
 

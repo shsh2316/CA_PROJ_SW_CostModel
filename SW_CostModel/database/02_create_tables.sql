@@ -251,11 +251,17 @@ CREATE TABLE dbo.SwProjectRegister
     VerifiedAt            DATETIME2(0)   NULL,
     CostedBy              NVARCHAR(200)  NULL,              -- admin whose rates priced the entry; NULL = not costed yet
     EstimateJson          NVARCHAR(MAX)  NULL,              -- full estimate with the rates it was made with
+    StartDate             DATE           NULL,              -- project start (dashboard date filter)
+    EndDate               DATE           NULL,              -- project end; NULL = still running or not known
     CONSTRAINT CK_SwReg_Kind     CHECK (Kind IN ('new','amc','enh')),
     CONSTRAINT CK_SwReg_Model    CHECK (DeliveryModel IS NULL OR DeliveryModel IN ('once','yearly')),
     CONSTRAINT CK_SwReg_Status   CHECK (Status IN ('planned','progress','completed')),
     CONSTRAINT CK_SwReg_Workflow CHECK (Workflow IN ('pending','info','verified'))
 );
+GO
+/* Upgrade of a database made before project dates existed (safe to run again) */
+IF COL_LENGTH('dbo.SwProjectRegister', 'StartDate') IS NULL ALTER TABLE dbo.SwProjectRegister ADD StartDate DATE NULL;
+IF COL_LENGTH('dbo.SwProjectRegister', 'EndDate') IS NULL ALTER TABLE dbo.SwProjectRegister ADD EndDate DATE NULL;
 GO
 /* The page filters the register by who submitted the entry */
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SwProjectRegister_SubmittedBy' AND object_id = OBJECT_ID('dbo.SwProjectRegister'))
