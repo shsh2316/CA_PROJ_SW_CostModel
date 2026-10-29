@@ -1017,10 +1017,10 @@ function onMasterChange(force){
 var API='api/estimator.ashx';
 var ME={id:null,name:''},ISADMIN=false,DBSTATE='wait',DBERR='',regDocs=[],NAMES={},regSig='',lastSync=0;
 var regFY='all',regView='all',APSEL=null,apSig='',apAdj='',apNote='',apCharged='';
-function api(action,body){
+function api(action,body,query){
   var o={method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'X-Requested-With':'XMLHttpRequest'}};
   if(body){o.headers['Content-Type']='application/json';o.body=JSON.stringify(body);}
-  return fetch(API+'?action='+encodeURIComponent(action),o).then(function(r){
+  return fetch(API+'?action='+encodeURIComponent(action)+(query||''),o).then(function(r){
     var login=document.body.dataset.loginUrl;
     if(r.status===401&&login){location.href=login+'?returnUrl='+encodeURIComponent(location.pathname+location.search);return new Promise(function(){});}
     return r.json().catch(function(){return null;}).then(function(j){
@@ -1050,16 +1050,17 @@ function applyRegister(reg){
   reg=reg||{};
   var sig=JSON.stringify(reg);
   if(sig===regSig)return;
-  regSig=sig;regDocs=reg.projects||[];NAMES=reg.names||{};
+  regSig=sig;regDocs=reg.projects||[];NAMES=reg.names||{};if(reg.sig)regServerSig=reg.sig;
   renderAppr();fillPvSel();updateBanner();
   if(PAGE==='print')paintPrint();
 }
 /* Each request for server data gets a number: a slower, older answer that arrives after a newer one is ignored. */
-var dataSeq=0,pollStarted=false;
+var dataSeq=0,pollStarted=false,regServerSig='';   /* regServerSig: the server's signature of the register this page holds */
 function loadRegister(){
   if(DBSTATE!=='ready')return;
   var my=++dataSeq;
-  api('projects').then(function(r){if(my===dataSeq)applyRegister(r);},function(e){toast(e.message||'Could not refresh the register');});
+  /* with the signature, an unchanged register comes back as a few bytes instead of every estimate */
+  api('projects',null,regServerSig?'&sig='+encodeURIComponent(regServerSig):'').then(function(r){if(my===dataSeq&&!r.unchanged)applyRegister(r);},function(e){toast(e.message||'Could not refresh the register');});
 }
 function refreshAll(){
   if(DBSTATE!=='ready'||Date.now()-lastSync<15000)return;

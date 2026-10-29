@@ -12,7 +12,27 @@ var CONTENT_W_MM=PAGE_W_MM-2*MARGIN_MM;         // 186
 var CONTENT_H_MM=PAGE_H_MM-2*MARGIN_MM-6;       // 267: a little room is kept for the page footer
 var WIDTHS=[703,740,780];                       // the document is laid out this many CSS px wide: 703 is 186 mm (96 dpi), text the size it is on screen; a wider layout shrinks it a little, only to save a page
 var SCALE=2;                                    // canvas pixels per CSS pixel: sharp text at A4
-var busy=false,dataPromise=null;
+var busy=false,dataPromise=null,libsPromise=null;
+var LIBS=['assets/js/vendor/html2canvas.min.js','assets/js/vendor/jspdf.umd.min.js','assets/js/estimator.js'];
+
+/* ---------- the PDF libraries and the estimator, loaded on the first PDF click (not with the page) ---------- */
+function loadScript(src){
+  return new Promise(function(ok,fail){
+    var s=document.createElement('script');s.src=src;
+    s.onload=ok;s.onerror=function(){s.remove();fail(new Error(src));};
+    document.head.appendChild(s);
+  });
+}
+function libs(){
+  if(window.CAEstimate&&window.jspdf&&window.html2canvas)return Promise.resolve();
+  if(!libsPromise){
+    libsPromise=Promise.all(LIBS.map(loadScript)).then(function(){
+      if(!window.CAEstimate||!window.jspdf||!window.html2canvas)throw new Error('incomplete');
+    });
+    libsPromise.catch(function(){libsPromise=null;});   // try again on the next click
+  }
+  return libsPromise.catch(function(){throw new Error('The PDF libraries did not load. Reload the page; if it keeps happening, tell the administrator.');});
+}
 
 /* ---------- the register (with each entry's saved estimate) and the masters, fetched once ---------- */
 function loginUrl(){return document.body.dataset.loginUrl;}
@@ -154,11 +174,10 @@ document.addEventListener('click',function(e){
   if(!btn)return;
   e.preventDefault();
   if(busy)return;
-  if(!window.CAEstimate||!window.jspdf||!window.html2canvas){say('The PDF libraries did not load. Reload the page; if it keeps happening, tell the administrator.',true);return;}
   busy=true;
   var label=btn.textContent,id=btn.getAttribute('data-pdf');
   btn.disabled=true;btn.textContent='Preparing PDF…';say('Preparing the PDF…',false);
-  load().then(function(byId){
+  libs().then(load).then(function(byId){
     var d=byId[id];
     if(!d)throw new Error('That entry was not found in the register.');
     return build(d);

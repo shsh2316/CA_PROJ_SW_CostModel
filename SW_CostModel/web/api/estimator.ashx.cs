@@ -8,7 +8,7 @@ using System.Web.Management;
 /// <summary>
 /// JSON API for the estimator page. One URL, the action is a query parameter:
 ///   GET  api/estimator.ashx?action=init           signed-in user, masters and register
-///   GET  api/estimator.ashx?action=projects       register only (refresh)
+///   GET  api/estimator.ashx?action=projects[&sig=...]   ({ unchanged: true } when the register is the same as the signature)
 ///   POST api/estimator.ashx?action=saveMaster     { key, doc }                                   admins only
 ///   POST api/estimator.ashx?action=submitProject  { id?, entry, reply? }
 ///   POST api/estimator.ashx?action=verifyProject  { id, updated, costing, adjustedValue?, comment? } admins only
@@ -78,10 +78,15 @@ public class EstimatorApi : IHttpHandler
                 {
                     { "me", Me(user) },
                     { "masters", MasterRepository.Load(user.IsAdmin) },
-                    { "register", ProjectRepository.List(user) }
+                    { "register", ProjectRepository.ListWithSignature(user) }
                 };
             case "projects:GET":
-                return ProjectRepository.List(user);
+            {
+                // The page polls every minute. When nothing changed since its copy (same signature), answer in a few bytes instead of the whole register.
+                string sig = ProjectRepository.Signature(user);
+                if (req.QueryString["sig"] == sig) return new Dictionary<string, object> { { "unchanged", true }, { "sig", sig } };
+                return ProjectRepository.ListWithSignature(user, sig);
+            }
             case "saveMaster:POST":
                 user.RequireAdmin("Only admins can change masters.");
                 MasterRepository.Save(user, Json.Text(body, "key", 10), Json.Obj(body, "doc"));

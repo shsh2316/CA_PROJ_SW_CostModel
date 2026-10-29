@@ -114,6 +114,29 @@ public static class ProjectRepository
         return new Dictionary<string, object> { { "projects", projects }, { "names", names } };
     }
 
+    /// <summary>
+    /// A short value that changes whenever anything this person can see in the register changes: an entry added, deleted, edited,
+    /// verified, sent back or recalculated (UpdatedAt / Workflow), or a history line added. Two cheap aggregate queries.
+    /// </summary>
+    public static string Signature(CurrentUser user)
+    {
+        string own = user.IsAdmin ? "" : " WHERE SubmittedBy = " + Db.Quote(user.Login ?? "");
+        DataTable a = Db.Select("SELECT COUNT(*) AS N, CHECKSUM_AGG(CHECKSUM(RegisterId, UpdatedAt, Workflow)) AS C FROM dbo.SwProjectRegister" + own);
+        string logWhere = user.IsAdmin ? "" : " WHERE RegisterId IN (SELECT RegisterId FROM dbo.SwProjectRegister" + own + ")";
+        DataTable b = Db.Select("SELECT COUNT(*) AS N, MAX(LogId) AS M FROM dbo.SwProjectLog" + logWhere);
+        Func<DataTable, string, string> v = (t, c) => t.Rows.Count > 0 && t.Rows[0][c] != DBNull.Value ? Convert.ToString(t.Rows[0][c]) : "";
+        return String.Join(".", new[] { v(a, "N"), v(a, "C"), v(b, "N"), v(b, "M"), user.IsAdmin ? "a" : "u" });
+    }
+
+    /// <summary>The register with its signature (taken first: a change made while the list is read only makes the next poll fetch again).</summary>
+    public static Dictionary<string, object> ListWithSignature(CurrentUser user, string sig = null)
+    {
+        sig = sig ?? Signature(user);
+        Dictionary<string, object> reg = List(user);
+        reg["sig"] = sig;
+        return reg;
+    }
+
     static void Put(Dictionary<string, object> d, string key, object value)
     {
         if (value != null) d[key] = value;

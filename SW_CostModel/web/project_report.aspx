@@ -31,11 +31,8 @@
   </section>
 </div>
 
-<%-- PDF: the estimate document is built in the browser. jsPDF and html2canvas are bundled in assets/js/vendor (no internet needed);
-     estimator.js runs in library mode here and only provides the calculation and the quotation layout. --%>
-<script src="assets/js/vendor/html2canvas.min.js"></script>
-<script src="assets/js/vendor/jspdf.umd.min.js"></script>
-<script src="assets/js/estimator.js"></script>
+<%-- PDF: the estimate document is built in the browser. report-pdf.js loads jsPDF and html2canvas (bundled in assets/js/vendor, no internet needed)
+     and estimator.js (library mode: the calculation and the quotation layout) on the first PDF click, so the list opens without 700 KB of scripts. --%>
 <script src="assets/js/report-pdf.js"></script>
 <script src="assets/js/report.js"></script>
 </body>
