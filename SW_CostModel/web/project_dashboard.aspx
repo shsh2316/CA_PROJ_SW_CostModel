@@ -8,6 +8,7 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/estimator.css">
+<link rel="stylesheet" href="assets/css/dashboard-visual.css">
 <link rel="stylesheet" href="assets/css/dashboard-print.css">
 </head>
 <body data-login-url="<%: ResolveUrl("~/Default.aspx") %>" class="dash">
@@ -53,12 +54,16 @@
       <div class="dchips" id="dChips"></div>
     </div>
 
-    <%-- the deck: one slide at a time; arrow keys, the strip, Present (full screen) and Print (one slide per page) --%>
+    <%-- the deck: five visual slides (stated highlights + register figures), then five data slides; one slide at a time; arrow keys, the strip,
+         Present (full screen), Print (one slide per page), Download PNG (the slide as a 1920 x 1080 picture for a presentation) --%>
     <div class="dctl">
       <button type="button" class="btn sm" id="dPrev" aria-label="Previous slide">&#8249; Previous</button>
       <span id="dPos" class="dpos" aria-live="polite"></span>
       <button type="button" class="btn sm" id="dNext" aria-label="Next slide">Next &#8250;</button>
       <span class="dctl-gap"></span>
+      <button type="button" class="btn sm" id="dEdit" aria-expanded="false" aria-controls="hlPanel">Edit highlights</button>
+      <button type="button" class="btn sm" id="dPng">Download PNG</button>
+      <button type="button" class="btn sm" id="dPngAll" title="Every slide except the project list">All slides as PNG</button>
       <button type="button" class="btn sm" id="dPresent">Present</button>
       <button type="button" class="btn sm" id="dPrint">Print</button>
     </div>
@@ -66,8 +71,22 @@
     <div class="deck" id="dDeck"></div>
     <p id="pdfMsg" class="msg" role="status" hidden></p>
   </section>
+
+  <%-- the highlights editor: the stated figures of the visual slides, saved for everyone (admins) --%>
+  <aside class="hlpanel" id="hlPanel" aria-label="Edit highlights" hidden>
+    <div class="hlhead">
+      <h2>Highlights</h2>
+      <button type="button" class="btn sm primary" id="hlSave">Save</button>
+      <button type="button" class="btn sm" id="hlReset" title="Back to the saved highlights">Undo changes</button>
+      <button type="button" class="btn sm" id="hlExample" title="Put the example figures back (save to keep them)">Use the example</button>
+      <button type="button" class="btn sm" id="hlClose" aria-label="Close">×</button>
+    </div>
+    <p class="hlstat" id="hlStat" role="status"></p>
+    <div class="hlbody" id="hlBody"></div>
+  </aside>
 </div>
 
+<script src="assets/js/dashboard-visual.js"></script>
 <script src="assets/js/dashboard.js"></script>
 <script src="assets/js/report-pdf.js"></script>
 </body>

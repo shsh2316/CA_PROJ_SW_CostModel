@@ -96,6 +96,14 @@ payback) and the **project list** with a PDF of each estimate.
   (choose *Save as PDF* in the print dialog for a file).
 - Figures are the recorded values of each entry, the same as the Approval totals and the report.
 
+**Visual slides for meetings.** The deck opens with five infographic slides: **Working principle**, **Benefits at a glance**, **Money**, **FTE** and
+**Productivity**. Costs, cost avoided (by live / in-progress projects and by Business KPI) and project counts come from the register and follow the choice
+above; the stated figures (TAT examples, task reductions, man-hours, output, potential) are the **highlights**: **Edit highlights** opens a panel where an
+admin changes them (rows can be added, removed and moved; opening a section shows its slide) and **Save** keeps them for everyone (`dbo.SwDashboardContent`,
+each save copied to `dbo.SwMasterAudit` as `dash`). **Download PNG** saves the slide on screen as a 1920 x 1080 picture to paste into PowerPoint;
+**All slides as PNG** saves every slide but the project list. The header photos are files in `web/assets/img` (jpg / png / webp): put new ones there and choose
+them under *Look* in the editor.
+
 Project dates: **Start date** and **End date** on the Registration Basics step (empty end = still running), two optional last columns in the Excel template and the CSV,
 and `database\08_project_dates.sql` for the imported project list.
 

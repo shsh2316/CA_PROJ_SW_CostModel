@@ -216,6 +216,8 @@ Current Edge, Chrome or Firefox 126 or later. Internet Explorer is not supported
    on a database without them. Then run `08_project_dates.sql` for the dates of the imported project list. Rebuild and publish (C# files changed), copy the new pages
    (`project_dashboard.aspx`, `assets/js/dashboard.js`, `assets/css/dashboard-print.css`). The project CSV for script `05` now has 34 columns (Start date, End date at the end):
    an older 32-column CSV is rejected with a message; add the two columns (they may be empty).
+   **v10 visual slides**: `02_create_tables.sql` (run again) also adds `dbo.SwDashboardContent` for the dashboard highlights; without it the dashboard shows
+   the example highlights and saving them fails. Copy `assets/img` (the header photos), `assets/js/dashboard-visual.js` and `assets/css/dashboard-visual.css`.
 4. Browse to the site once (the first request is slow while IIS compiles the page markup). Browsers pick up the new files on the next
    visit (the site sends `Cache-Control: no-cache` for pages, the API and static files).
 

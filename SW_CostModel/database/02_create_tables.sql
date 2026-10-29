@@ -17,7 +17,7 @@
                           value creation categories
      2. Users           : dbo.SwAppUser (display names, who is an admin)
      3. Project register: dbo.SwProjectRegister + dbo.SwProjectLog
-     4. Audit           : dbo.SwMasterAudit (one row per master save)
+     4. Audit           : dbo.SwMasterAudit (one row per master save), dbo.SwDashboardContent (dashboard highlights)
      5. Views           : yearly summary, rate card
 
    Upgrading from the earlier single script
@@ -314,10 +314,22 @@ IF OBJECT_ID('dbo.SwMasterAudit') IS NULL
 CREATE TABLE dbo.SwMasterAudit
 (
     AuditId         INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_SwMasterAudit PRIMARY KEY,
-    MasterKey       VARCHAR(10)    NOT NULL,          -- man | hw | sw | lic | val
+    MasterKey       VARCHAR(10)    NOT NULL,          -- man | hw | sw | lic | val | dash (dashboard highlights)
     SavedBy         NVARCHAR(200)  NOT NULL,
     SavedAt         DATETIME2(0)   NOT NULL CONSTRAINT DF_SwMasterAudit_At DEFAULT SYSUTCDATETIME(),
     MasterJson      NVARCHAR(MAX)  NOT NULL
+);
+GO
+
+/* Dashboard highlights: the stated figures shown on the dashboard's visual slides (TAT examples, task reductions, output, potential),
+   edited by admins on the Dashboard page. One JSON document per key; each save is also copied to dbo.SwMasterAudit (MasterKey 'dash'). */
+IF OBJECT_ID('dbo.SwDashboardContent') IS NULL
+CREATE TABLE dbo.SwDashboardContent
+(
+    ContentKey      VARCHAR(40)    NOT NULL CONSTRAINT PK_SwDashboardContent PRIMARY KEY,   -- 'highlights'
+    ContentJson     NVARCHAR(MAX)  NOT NULL,
+    UpdatedBy       NVARCHAR(200)  NOT NULL,
+    UpdatedAt       DATETIME2(0)   NOT NULL CONSTRAINT DF_SwDashboardContent_At DEFAULT SYSUTCDATETIME()
 );
 GO
 
